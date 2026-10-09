@@ -1,47 +1,48 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from './services/api';
-import { Alert, Area, EmergencyContact, SafeZone, SupportedLanguage, SystemStatus } from './types';
-import { Header } from './components/Header';
-import { SystemNoticeBanner } from './components/SystemNoticeBanner';
-import { EmergencyBanner } from './components/EmergencyBanner';
-import { DemoScenarioBar } from './components/DemoScenarioBar';
-import { AlertFilterBar } from './components/AlertFilterBar';
-import { AlertCard } from './components/AlertCard';
-import { InteractiveMap } from './components/InteractiveMap';
-import { SafeZoneSection } from './components/SafeZoneSection';
-import { EmergencyContactsModal } from './components/EmergencyContactsModal';
-import { AdminModal } from './components/AdminModal';
+import { Alert, Area, EmergencyContact, SafeZone, SystemStatus } from './types';
+import { Copy, Language, messages } from './i18n/messages';
+import { Header, Page } from './components/Header';
+import { Dashboard } from './components/Dashboard';
+import { ConditionsPage } from './components/ConditionsPage';
+import { ContactsPage } from './components/ContactsPage';
+import { EditorPage } from './components/EditorPage';
 import { Footer } from './components/Footer';
-import { ShieldAlert, RefreshCw, AlertTriangle, Compass } from 'lucide-react';
+import { Scenario } from './components/StatusHero';
+import { Icon } from './components/Icon';
 
 export const App: React.FC = () => {
-  // Core state
+  // Navigation & Language
+  const [page, setPage] = useState<Page>('dashboard');
+  const [language, setLanguage] = useState<Language>('en');
+  const [mobileNav, setMobileNav] = useState(false);
+  const t: Copy = messages[language];
+
+  // Areas & Location
   const [areas, setAreas] = useState<Area[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string>('area-chennai-coastal');
-  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>('en');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+
+  // Application Data
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [status, setStatus] = useState<SystemStatus | null>(null);
-
-  // User location
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [isLocating, setIsLocating] = useState<boolean>(false);
-
-  // Filters
-  const [selectedHazard, setSelectedHazard] = useState<string>('all');
-  const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Demo & Modals
-  const [activeScenario, setActiveScenario] = useState<string>('cyclone_active');
-  const [isHelplineOpen, setIsHelplineOpen] = useState<boolean>(false);
-  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('just now');
 
-  // Load Areas on start
+  // Scenario
+  const [scenario, setScenario] = useState<Scenario>('cyclone');
+  const [isScenarioLoading, setIsScenarioLoading] = useState(false);
+
+  // Smooth Navigation
+  const navigate = (next: Page) => {
+    setPage(next);
+    setMobileNav(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 1. Fetch available geographic areas on start
   useEffect(() => {
     api.getAreas()
       .then((data) => {
@@ -50,12 +51,11 @@ export const App: React.FC = () => {
           setSelectedAreaId(data[0].id);
         }
       })
-      .catch((err) => console.error('Failed to load areas', err));
+      .catch((err) => console.warn('Could not load areas from backend', err));
   }, []);
 
-  // Main data fetch function
-  const loadData = useCallback(async (isManualRefresh: boolean = false) => {
-    if (isManualRefresh) setIsRefreshing(true);
+  // 2. Main data loader
+  const loadData = useCallback(async () => {
     try {
       const [statusRes, alertsRes, safeZonesRes, contactsRes] = await Promise.all([
         api.getStatus(),
@@ -72,228 +72,180 @@ export const App: React.FC = () => {
       setAlerts(alertsRes);
       setSafeZones(safeZonesRes);
       setContacts(contactsRes);
-      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setLastSyncTime(
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+      );
 
-      // Cache locally for offline grace
+      // Cache locally for offline grace during connectivity loss
       try {
         localStorage.setItem(`saferoute_alerts_${selectedAreaId}`, JSON.stringify(alertsRes));
+        localStorage.setItem(`saferoute_safezones_${selectedAreaId}`, JSON.stringify(safeZonesRes));
       } catch {}
     } catch (err) {
       console.warn('Network error or server unavailable. Reading from offline cache...', err);
-      const cached = localStorage.getItem(`saferoute_alerts_${selectedAreaId}`);
-      if (cached) {
-        setAlerts(JSON.parse(cached));
-      }
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      try {
+        const cachedAlerts = localStorage.getItem(`saferoute_alerts_${selectedAreaId}`);
+        const cachedSafeZones = localStorage.getItem(`saferoute_safezones_${selectedAreaId}`);
+        if (cachedAlerts) setAlerts(JSON.parse(cachedAlerts));
+        if (cachedSafeZones) setSafeZones(JSON.parse(cachedSafeZones));
+      } catch {}
     }
   }, [selectedAreaId, userLocation]);
 
+  // Initial fetch and auto-refresh every 45s
   useEffect(() => {
     loadData();
-    // Auto-refresh every 45s
-    const interval = setInterval(() => {
-      loadData();
-    }, 45000);
+    const interval = setInterval(loadData, 45000);
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Handle browser geolocation
+  // Handle Scenario Switching
+  const handleSelectScenario = async (s: Scenario) => {
+    setScenario(s);
+    setIsScenarioLoading(true);
+
+    try {
+      const backendScenarioMap: Record<Scenario, string> = {
+        default: 'default',
+        cyclone: 'cyclone_active',
+        clear: 'all_clear',
+        outage: 'source_outage'
+      };
+
+      await api.setDemoScenario(backendScenarioMap[s]);
+      await loadData();
+    } catch (err) {
+      console.warn('Failed to switch scenario on server', err);
+    } finally {
+      setIsScenarioLoading(false);
+    }
+  };
+
+  // Browser Geolocation
   const handleToggleLocation = () => {
     if (userLocation) {
       setUserLocation(null);
       return;
     }
 
-    if (!navigator.geolocation) {
+    if (!('geolocation' in navigator)) {
       alert('Geolocation is not supported by your browser.');
       return;
     }
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      (position) => {
         setUserLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
         });
         setIsLocating(false);
       },
-      (err) => {
-        console.warn('Geolocation permission denied or timed out:', err);
-        // Fallback default coordinate near Marina Beach for demo if denied
-        alert('Geolocation permission was denied or unavailable. Using manual area selection.');
+      (error) => {
+        console.warn('Geolocation denied or unavailable', error);
+        // Default to Marina Beach coordinates for demo testing if permission not granted
+        setUserLocation({ lat: 13.0500, lng: 80.2824 });
         setIsLocating(false);
       },
-      { timeout: 8000, enableHighAccuracy: true }
+      { timeout: 6000, enableHighAccuracy: true }
     );
   };
 
-  // Demo scenario switch
-  const handleSelectScenario = async (scenario: string) => {
-    setActiveScenario(scenario);
-    try {
-      await api.setDemoScenario(scenario);
-      await loadData(true);
-    } catch (err) {
-      console.error('Failed to trigger demo scenario', err);
-    }
-  };
-
-  // Current selected area object
-  const currentArea = useMemo(() => {
-    return areas.find((a) => a.id === selectedAreaId) || areas[0];
-  }, [areas, selectedAreaId]);
-
-  // Highest severity active alert for EmergencyBanner
-  const criticalAlert = useMemo(() => {
-    const activeAlerts = alerts.filter((a) => a.status === 'active');
-    const critical = activeAlerts.find((a) => a.severity === 'critical');
-    if (critical) return critical;
-    const warning = activeAlerts.find((a) => a.severity === 'warning');
-    if (warning) return warning;
-    return activeAlerts[0] || null;
-  }, [alerts]);
-
-  // Filtered alert list
-  const filteredAlerts = useMemo(() => {
-    return alerts.filter((a) => {
-      if (selectedHazard !== 'all' && a.hazard_type !== selectedHazard) return false;
-      if (selectedSeverity !== 'all' && a.severity !== selectedSeverity) return false;
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = a.title.toLowerCase().includes(query);
-        const matchesDesc = a.description_original.toLowerCase().includes(query);
-        const matchesArea = a.area?.name.toLowerCase().includes(query) || false;
-        if (!matchesTitle && !matchesDesc && !matchesArea) return false;
-      }
-      return true;
-    });
-  }, [alerts, selectedHazard, selectedSeverity, searchQuery]);
-
-  const hasStaleAlerts = useMemo(() => {
-    return alerts.some((a) => a.is_stale);
-  }, [alerts]);
+  const currentArea = areas.find((a) => a.id === selectedAreaId);
+  const activeAlerts = alerts.filter((a) => a.status === 'active');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* 1. Header Navigation */}
+    <div className="min-h-screen bg-[#F6F8FA] text-[#101828]">
+      {/* Skip to Main Content Accessible Link */}
+      <a href="#main" className="skip-link">
+        {t.skip}
+      </a>
+
+      {/* Header */}
       <Header
+        t={t}
+        language={language}
+        setLanguage={setLanguage}
+        page={page}
+        navigate={navigate}
+        mobileNav={mobileNav}
+        setMobileNav={setMobileNav}
         areas={areas}
         selectedAreaId={selectedAreaId}
         onSelectArea={setSelectedAreaId}
-        selectedLanguage={selectedLanguage}
-        onSelectLanguage={setSelectedLanguage}
         userLocation={userLocation}
         onToggleLocation={handleToggleLocation}
         isLocating={isLocating}
-        status={status}
-        onOpenHelpline={() => setIsHelplineOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
-        lastSyncTime={lastSyncTime}
       />
 
-      {/* 2. System Warning Banner (if degraded/stale) */}
-      <SystemNoticeBanner
-        status={status}
-        hasStaleAlerts={hasStaleAlerts}
-        onRefreshFeed={() => loadData(true)}
-        isRefreshing={isRefreshing}
-      />
+      {/* Main Pages */}
+      <main id="main">
+        {page === 'dashboard' && (
+          <Dashboard
+            t={t}
+            language={language}
+            scenario={scenario}
+            onSelectScenario={handleSelectScenario}
+            navigate={navigate}
+            alerts={activeAlerts}
+            currentArea={currentArea}
+            status={status}
+            lastSyncTime={lastSyncTime}
+            isScenarioLoading={isScenarioLoading}
+          />
+        )}
 
-      {/* Main Container */}
-      <main className="main-container">
-        {/* 3. Demo Scenario Switcher for judging & presentation */}
-        <DemoScenarioBar
-          activeScenario={activeScenario}
-          onSelectScenario={handleSelectScenario}
-        />
+        {page === 'conditions' && (
+          <ConditionsPage
+            t={t}
+            area={currentArea}
+            alerts={activeAlerts}
+            safeZones={safeZones}
+            sources={status?.sources}
+            userLocation={userLocation}
+          />
+        )}
 
-        {/* 4. Active Emergency Banner */}
-        <EmergencyBanner
-          criticalAlert={criticalAlert}
-          area={currentArea}
-          lastSyncTime={lastSyncTime}
-        />
+        {page === 'contacts' && (
+          <ContactsPage
+            t={t}
+            contacts={contacts}
+            areaName={currentArea ? `${currentArea.name}, ${currentArea.state_region}` : undefined}
+          />
+        )}
 
-        {/* 5. Main Content Two-Column Grid */}
-        <div className="dashboard-grid">
-          {/* Left Column: Official Bulletins & Warnings */}
-          <section aria-label="Official Bulletins and Warnings">
-            <AlertFilterBar
-              selectedHazard={selectedHazard}
-              onSelectHazard={setSelectedHazard}
-              selectedSeverity={selectedSeverity}
-              onSelectSeverity={setSelectedSeverity}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              totalCount={filteredAlerts.length}
-            />
-
-            {isLoading ? (
-              <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
-                <RefreshCw size={24} className="pulse-dot" style={{ margin: '0 auto 0.75rem' }} />
-                <span>Synchronizing authoritative warnings from India Meteorological Department...</span>
-              </div>
-            ) : filteredAlerts.length === 0 ? (
-              <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center' }}>
-                <ShieldAlert size={36} color="#94a3b8" style={{ margin: '0 auto 0.75rem' }} />
-                <h3 style={{ fontSize: '1.15rem', color: '#f8fafc', marginBottom: '0.4rem' }}>
-                  No Matching Notices
-                </h3>
-                <p style={{ fontSize: '0.86rem', color: '#94a3b8' }}>
-                  No warnings match your current hazard/severity filter criteria in {currentArea?.name}.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {filteredAlerts.map((alert) => (
-                  <AlertCard
-                    key={alert.id}
-                    alert={alert}
-                    currentLanguage={selectedLanguage}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Right Column: Interactive Map & Designated Safe Zones */}
-          <aside aria-label="Geospatial Map and Designated Shelters">
-            <InteractiveMap
-              area={currentArea}
-              alerts={alerts}
-              safeZones={safeZones}
-              userLocation={userLocation}
-            />
-
-            <SafeZoneSection
-              safeZones={safeZones}
-              userLocation={userLocation}
-            />
-          </aside>
-        </div>
+        {page === 'editor' && (
+          <EditorPage
+            t={t}
+            navigate={navigate}
+            areas={areas}
+            alerts={alerts}
+            status={status}
+            onRefreshData={loadData}
+          />
+        )}
       </main>
 
-      {/* 6. Footer */}
-      <Footer />
+      {/* Footer */}
+      <Footer t={t} />
 
-      {/* 7. Emergency Contacts Modal */}
-      <EmergencyContactsModal
-        isOpen={isHelplineOpen}
-        onClose={() => setIsHelplineOpen(false)}
-        contacts={contacts}
-        areaName={currentArea?.name}
-      />
-
-      {/* 8. Admin & Verification Portal Modal */}
-      <AdminModal
-        isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-        areas={areas}
-        onAlertCreated={() => loadData(true)}
-      />
+      {/* Floating Emergency Action Button (FAB) */}
+      {page !== 'contacts' && page !== 'editor' && (
+        <button
+          type="button"
+          className="emergency-fab"
+          onClick={() => navigate('contacts')}
+          aria-label={t.contacts}
+        >
+          <Icon name="phone" size={19} />
+          <span>{t.contacts}</span>
+        </button>
+      )}
     </div>
   );
 };

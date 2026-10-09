@@ -1,220 +1,195 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, SupportedLanguage, Translation } from '../types';
-import { api } from '../services/api';
-import {
-  AlertTriangle,
-  AlertOctagon,
-  Clock,
-  ExternalLink,
-  Globe,
-  ChevronDown,
-  ChevronUp,
-  ShieldCheck,
-  Building,
-  Info
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Alert } from '../types';
+import { Copy, Language } from '../i18n/messages';
+import { Icon } from './Icon';
 
 interface AlertCardProps {
   alert: Alert;
-  currentLanguage: SupportedLanguage;
+  t: Copy;
+  language: Language;
+  areaName?: string;
 }
 
-export const AlertCard: React.FC<AlertCardProps> = ({ alert, currentLanguage }) => {
-  const [translation, setTranslation] = useState<Translation | null>(null);
-  const [loadingTrans, setLoadingTrans] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+export const AlertCard: React.FC<AlertCardProps> = ({
+  alert,
+  t,
+  language,
+  areaName
+}) => {
+  const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (currentLanguage !== alert.original_language) {
-      setLoadingTrans(true);
-      api
-        .getTranslation(alert.id, currentLanguage)
-        .then((res) => {
-          if (isMounted) setTranslation(res);
-        })
-        .catch(() => {
-          if (isMounted) setTranslation(null);
-        })
-        .finally(() => {
-          if (isMounted) setLoadingTrans(false);
-        });
-    } else {
-      setTranslation(null);
-      setLoadingTrans(false);
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [alert.id, currentLanguage, alert.original_language]);
+  // Find translation matching user's selected language
+  const translation = alert.translations?.find(
+    (tr) => tr.target_language === language
+  );
 
-  const severityClass =
-    alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'warning' : 'watch';
+  const isCritical = alert.severity === 'critical';
+  const severityClass = isCritical
+    ? 'severity critical'
+    : alert.severity === 'warning'
+    ? 'severity bg-amber-100 text-[#B54708]'
+    : 'severity bg-blue-100 text-[#175CD3]';
+
+  const severityLabel =
+    alert.severity === 'critical'
+      ? t.critical
+      : alert.severity === 'warning'
+      ? t.warning
+      : alert.severity === 'watch'
+      ? t.watch
+      : t.info;
+
+  const isOfficial = alert.verification_status === 'official_source';
+  const displayArea = alert.area ? `${alert.area.name}, ${alert.area.state_region}` : (areaName || t.area);
+
+  // Formatted issue time
+  const issuedDate = new Date(alert.issued_at);
+  const formattedIssued = !isNaN(issuedDate.getTime())
+    ? `${issuedDate.toLocaleDateString([], { day: 'numeric', month: 'short' })} · ${issuedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST`
+    : 'Official Broadcast';
+
+  // Staleness / retrieval
+  const retrievedDisplay = alert.is_stale
+    ? `⚠️ Stale (${alert.freshness_minutes || 42}m ago)`
+    : alert.freshness_minutes != null
+    ? `${alert.freshness_minutes}m ago`
+    : 'Synced';
 
   return (
-    <article className={`alert-card glass-panel ${severityClass}`}>
-      {/* Top Row: Tags & Timestamps */}
-      <div className="card-top-row">
-        <div className="tag-list">
-          <span
-            className="banner-badge"
-            style={{
-              background:
-                alert.severity === 'critical'
-                  ? 'var(--danger)'
-                  : alert.severity === 'warning'
-                  ? 'var(--warning)'
-                  : 'var(--watch)',
-              color: alert.severity === 'warning' ? '#1e1b4b' : 'white',
-              fontSize: '0.7rem',
-              padding: '0.2rem 0.55rem'
-            }}
-          >
-            {alert.severity === 'critical' ? (
-              <AlertOctagon size={12} />
-            ) : (
-              <AlertTriangle size={12} />
-            )}
-            {alert.severity.toUpperCase()}
+    <article className="alert-card">
+      <div
+        className={`alert-accent ${
+          isCritical ? 'bg-[#D92D20]' : alert.severity === 'warning' ? 'bg-[#DC6803]' : 'bg-[#007F78]'
+        }`}
+      />
+      <div className="alert-content">
+        <div className="badge-row">
+          <span className={severityClass}>
+            <Icon name={isCritical ? 'alert' : 'warning'} size={13} />
+            {severityLabel}
           </span>
-
-          <span
-            className={alert.is_simulated ? 'tag-simulated' : 'tag-verified'}
-            title={
-              alert.is_simulated
-                ? 'This record is part of a hackathon simulation scenario'
-                : 'Issued by verified meteorological authority'
-            }
-          >
-            {alert.is_simulated ? 'SIMULATION — NOT LIVE WARNING' : 'OFFICIAL SOURCE'}
-          </span>
-
-          <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>
-            📍 {alert.area?.name || 'Coastal Zone'}
+          {alert.is_simulated && (
+            <span className="demo-badge">{t.simulation}</span>
+          )}
+          <span className={isOfficial ? 'verified-state' : 'unverified'}>
+            <Icon name={isOfficial ? 'check' : 'info'} size={14} />
+            {isOfficial ? 'Verified official source' : t.unverified}
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.74rem', color: '#94a3b8' }}>
-          <Clock size={13} />
-          <span>Issued {new Date(alert.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-      </div>
+        <h3>{translation?.translated_title || alert.title}</h3>
 
-      {/* Title */}
-      <h3 className="alert-card-title">{alert.title}</h3>
+        <p className="alert-area">
+          <Icon name="location" size={16} />
+          <strong>{t.affected}:</strong> {displayArea}
+        </p>
 
-      {/* Side-by-Side Dual Language Display (Crucial Safety Feature) */}
-      {currentLanguage !== alert.original_language ? (
-        <div className="dual-text-box">
-          {/* Left Column: Original Official Text */}
+        <p className="alert-description">
+          {translation?.translated_description || alert.description_original}
+        </p>
+
+        {/* Recommended action */}
+        <div className="instruction">
+          <Icon name="shield" size={20} />
           <div>
-            <div className="text-col-header">
-              <Globe size={13} color="#94a3b8" />
-              <span>Original Notice ({alert.original_language.toUpperCase()})</span>
-            </div>
-            <div className="text-col-content">{alert.description_original}</div>
+            <strong>{t.instruction}</strong>
+            <p>
+              {translation?.translated_instruction ||
+                alert.instruction_original ||
+                t.alertAction}
+            </p>
           </div>
+        </div>
 
-          {/* Right Column: Translated Text */}
+        {/* Unofficial translation card if not English */}
+        {language !== 'en' && (
+          <div className="translation">
+            <span>{t.translated} ({t.lang})</span>
+            <p>
+              {translation?.translated_description ||
+                alert.description_original}
+            </p>
+            {translation?.translated_instruction && (
+              <p className="mt-2 font-semibold">
+                👉 {translation.translated_instruction}
+              </p>
+            )}
+            <small>{t.notReplace}</small>
+          </div>
+        )}
+
+        {/* Source facts */}
+        <dl className="alert-facts">
           <div>
-            <div className="text-col-header" style={{ color: '#38bdf8' }}>
-              <Globe size={13} color="#38bdf8" />
-              <span>
-                Translated ({currentLanguage.toUpperCase()}){' '}
-                {loadingTrans && <span style={{ fontSize: '0.65rem' }}>[Translating...]</span>}
-              </span>
-            </div>
-            <div className="text-col-content" style={{ color: '#e0f2fe' }}>
-              {translation ? (
-                translation.translated_description
-              ) : loadingTrans ? (
-                <em style={{ color: '#64748b' }}>Processing linguistic synthesis...</em>
-              ) : (
-                <em style={{ color: '#94a3b8' }}>
-                  Translation unavailable for this language. Showing original above.
-                </em>
+            <dt>{t.source}</dt>
+            <dd>{alert.source?.name || 'India Meteorological Department (IMD)'}</dd>
+          </div>
+          <div>
+            <dt>{t.issued}</dt>
+            <dd>{formattedIssued}</dd>
+          </div>
+          <div>
+            <dt>{t.retrieved}</dt>
+            <dd>{retrievedDisplay}</dd>
+          </div>
+        </dl>
+
+        {/* Expandable metadata drawer */}
+        {open && (
+          <div className="metadata">
+            <div>
+              <span>{t.original}</span>
+              <p>{alert.description_original}</p>
+              {alert.instruction_original && (
+                <p className="mt-2 text-xs italic">
+                  Original Directive: {alert.instruction_original}
+                </p>
               )}
             </div>
+            <dl>
+              <div>
+                <dt>Record ID</dt>
+                <dd className="font-mono">{alert.id}</dd>
+              </div>
+              <div>
+                <dt>{t.verification}</dt>
+                <dd>{alert.verification_status}</dd>
+              </div>
+              <div>
+                <dt>{t.status}</dt>
+                <dd className="capitalize">{alert.status}</dd>
+              </div>
+            </dl>
           </div>
-        </div>
-      ) : (
-        <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.75rem', lineHeight: 1.45 }}>
-          {alert.description_original}
-        </p>
-      )}
+        )}
 
-      {/* Official Instructions */}
-      {alert.instruction_original && (
-        <div className="instruction-highlight">
-          <strong>Mandatory Instruction:</strong> {alert.instruction_original}
-        </div>
-      )}
-
-      {/* Expandable Technical Details Drawer */}
-      {isExpanded && (
-        <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border-subtle)', fontSize: '0.8rem', color: '#94a3b8' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <div>
-              <strong>External ID:</strong> {alert.external_id || 'GCC-N/A'}
-            </div>
-            <div>
-              <strong>Effective Start:</strong>{' '}
-              {alert.effective_at ? new Date(alert.effective_at).toLocaleString() : 'Immediate'}
-            </div>
-            <div>
-              <strong>Expiry Horizon:</strong>{' '}
-              {alert.expires_at ? new Date(alert.expires_at).toLocaleString() : 'Until Further Notice'}
-            </div>
-            <div>
-              <strong>Linguistic Provider:</strong>{' '}
-              {translation?.provider || 'Native Text Preservation'}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Card Footer: Attribution & Expand Button */}
-      <div className="card-footer-info">
-        <div className="source-attribution">
-          <Building size={14} color="#94a3b8" />
-          <span>
-            {alert.source?.name} ({alert.source?.authority_level.replace('_', ' ')})
-          </span>
+        <div className="alert-actions">
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? t.hide : t.details}
+            <Icon name={open ? 'chevron' : 'arrow'} size={16} />
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setOpen(!open)}
+          >
+            {t.metadata}
+          </button>
           {alert.source_url && (
             <a
               href={alert.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', marginLeft: '0.4rem' }}
+              className="text-button inline-flex items-center gap-1"
             >
-              Verify Source <ExternalLink size={11} />
+              Official Bulletin <Icon name="external" size={13} />
             </a>
           )}
         </div>
-
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#94a3b8',
-            fontSize: '0.75rem',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem'
-          }}
-        >
-          {isExpanded ? (
-            <>
-              Hide Details <ChevronUp size={14} />
-            </>
-          ) : (
-            <>
-              Metadata <ChevronDown size={14} />
-            </>
-          )}
-        </button>
       </div>
     </article>
   );

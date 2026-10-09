@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Alert, Area, SafeZone } from '../types';
-import { MapPin, Shield, Layers, Navigation, Info, List, Map as MapIcon } from 'lucide-react';
+import { Layers, List, Map as MapIcon } from 'lucide-react';
 
 interface InteractiveMapProps {
   area: Area | undefined;
@@ -38,11 +38,16 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         zoomControl: true
       });
 
-      // Dark style tile layer from CartoDB or standard OSM
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        maxZoom: 19
+      // Standard OpenStreetMap tile provider (no API key required)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c']
       }).addTo(map);
+
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
 
       layerGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;

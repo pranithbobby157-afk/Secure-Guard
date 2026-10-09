@@ -1,67 +1,51 @@
 import React from 'react';
-import { Shield, ExternalLink, Heart } from 'lucide-react';
+import { Copy } from '../i18n/messages';
+import { Icon } from './Icon';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  t: Copy;
+}
+
+export const Footer: React.FC<FooterProps> = ({ t }) => {
   return (
-    <footer className="footer-container">
-      <div className="footer-content">
-        {/* Col 1: Mission & Safety Mandate */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.65rem' }}>
-            <div style={{ background: '#ef4444', padding: '0.35rem', borderRadius: '6px', color: 'white', display: 'flex' }}>
-              <Shield size={18} />
+    <footer className="mt-20 border-t border-[#E2E8F0] bg-white text-[#475467]">
+      <div className="mx-auto max-w-[1240px] px-4 py-12 sm:px-6 lg:px-10">
+        <div className="flex flex-col justify-between gap-8 md:flex-row md:items-start">
+          <div className="max-w-md">
+            <div className="brand">
+              <span className="brand-mark">
+                <Icon name="shield" size={21} />
+              </span>
+              <span>
+                <strong>SafeRoute</strong>
+                <small>{t.tagline}</small>
+              </span>
             </div>
-            <strong style={{ fontSize: '1.15rem', color: '#f8fafc' }}>SafeRoute</strong>
+            <p className="mt-4 text-xs leading-6 text-[#667085]">
+              SafeRoute is an authoritative crisis communication aid designed specifically for travellers caught in extreme weather disasters in coastal Tamil Nadu.
+            </p>
           </div>
-          <p style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.55 }}>
-            Real-time crisis communication aid designed to eliminate linguistic barriers and orient tourists during severe cyclones, flash floods, and coastal weather emergencies in Tamil Nadu.
-          </p>
 
-          <div className="disclaimer-box">
-            <strong>Mandatory Safety Disclaimer:</strong> SafeRoute compiles and translates published bulletins for traveller convenience. SafeRoute is <strong>not</strong> an emergency rescue dispatch authority. In life-threatening emergencies, immediately dial <strong>112</strong> or <strong>1070</strong>. Never enter floodwaters based on navigational approximations.
+          <div className="flex flex-col gap-2 text-xs">
+            <strong className="text-sm text-[#101828]">Authoritative Provenance</strong>
+            <span className="text-[#667085]">• India Meteorological Department (IMD)</span>
+            <span className="text-[#667085]">• Tamil Nadu State Disaster Management (TNSDMA)</span>
+            <span className="text-[#667085]">• Greater Chennai Corporation (GCC 24x7)</span>
+          </div>
+
+          <div className="flex flex-col gap-2 text-xs">
+            <strong className="text-sm text-[#101828]">Hackathon Submission</strong>
+            <span className="text-[#667085]">Team: <b>Bits &amp; Bytes</b></span>
+            <span className="text-[#667085]">Domain: TravelTech</span>
+            <span className="text-[#667085]">IIITDM Kancheepuram 24-Hour Web Dev Hackathon</span>
           </div>
         </div>
 
-        {/* Col 2: Authoritative Data Connectors */}
-        <div>
-          <h4 style={{ fontSize: '0.88rem', color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.85rem' }}>
-            Data Provenance
-          </h4>
-          <ul style={{ listStyle: 'none', padding: 0, fontSize: '0.8rem', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <li>
-              <a href="https://mausam.imd.gov.in" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                India Meteorological Dept (IMD) <ExternalLink size={11} />
-              </a>
-            </li>
-            <li>
-              <a href="https://tnsdma.tn.gov.in" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                TN State Disaster Authority (TNSDMA) <ExternalLink size={11} />
-              </a>
-            </li>
-            <li>
-              <a href="https://chennaicorporation.gov.in" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                Greater Chennai Corporation (GCC) <ExternalLink size={11} />
-              </a>
-            </li>
-            <li>
-              <a href="https://112.gov.in" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                National Emergency Helpline (112) <ExternalLink size={11} />
-              </a>
-            </li>
-          </ul>
-        </div>
-
-        {/* Col 3: Privacy & Hackathon Context */}
-        <div>
-          <h4 style={{ fontSize: '0.88rem', color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.85rem' }}>
-            Hackathon Project
-          </h4>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '0.75rem' }}>
-            Built for <strong>IIITDM Kancheepuram 24-Hour Web Development Hackathon</strong>. Track: <strong>TravelTech</strong>.
+        <div className="mt-10 border-t border-[#E2E8F0] pt-6 flex flex-col items-center justify-between gap-4 text-[11px] text-[#98A2B3] sm:flex-row">
+          <p>
+            ⚠️ Safety Notice: SafeRoute preserves original official bulletins. Straight-line map distances are approximations and never guarantee that unverified routes are safe.
           </p>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.65rem' }}>
-            🔒 <strong>Privacy First:</strong> Geolocation coordinates stay strictly in your browser memory and are never stored on any server.
-          </div>
+          <p>© 2026 SafeRoute Project. All rights reserved.</p>
         </div>
       </div>
     </footer>

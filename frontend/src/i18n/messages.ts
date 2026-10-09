@@ -1,6 +1,8 @@
 export type Language = 'en' | 'ta' | 'hi' | 'fr';
 
-export const messages = {
+export type Copy = Record<string, string>;
+
+export const messages: Record<Language, Copy> = {
   en: {
     lang: "English", tagline: "TOURIST CRISIS COMMUNICATION", dashboard: "Dashboard",
     conditions: "Conditions & shelters", contacts: "Emergency contacts", editor: "Editor access",
@@ -163,6 +165,5 @@ export const messages = {
     unpublished: "Non publiée", returnPublic: "Retour au tableau public", skip: "Aller au contenu principal", mobileNav: "Ouvrir la navigation",
     close: "Fermer", loading: "Vérification des sources configurées…", capacity: "Capacité", open: "Ouvrir", menu: "Menu",
   },
-} as const;;
+};
 
-export type Copy = (typeof messages)[Language];

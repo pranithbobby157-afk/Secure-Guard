@@ -58,10 +58,13 @@ def set_demo_scenario(
         alerts_list = db.query(Alert).all()
         for a in alerts_list:
             a.status = "cancelled"
+        sources = db.query(Source).all()
+        for s in sources:
+            s.health_status = "healthy"
         db.commit()
         return {"scenario": "all_clear", "message": "All alerts marked cancelled. SafeRoute displays no-active-alerts state with disclaimer."}
     
-    elif scenario == "cyclone_active":
+    elif scenario in ("cyclone_active", "default"):
         alerts_list = db.query(Alert).all()
         for a in alerts_list:
             a.status = "active"
@@ -69,13 +72,19 @@ def set_demo_scenario(
         for s in sources:
             s.health_status = "healthy"
         db.commit()
-        return {"scenario": "cyclone_active", "message": "Active crisis alerts restored with healthy source feeds."}
+        return {"scenario": scenario, "message": "Active crisis alerts restored with healthy source feeds."}
 
     elif scenario == "source_outage":
-        imd = db.query(Source).filter(Source.id == "source-imd").first()
-        if imd:
-            imd.health_status = "degraded"
-            db.commit()
+        alerts_list = db.query(Alert).all()
+        for a in alerts_list:
+            a.status = "active"
+        sources = db.query(Source).all()
+        for s in sources:
+            if s.id == "source-imd":
+                s.health_status = "degraded"
+            else:
+                s.health_status = "healthy"
+        db.commit()
         return {"scenario": "source_outage", "message": "IMD feed marked degraded. Frontend will display explicit stale-data warning."}
 
     return {"scenario": scenario, "message": "Unknown scenario"}

@@ -142,3 +142,6 @@ A 3-minute video script formatted for hackathon evaluation is available at:
 
 ## 👥 Hackathon Credits
 Built with ❤️ by team **Bits & Bytes** for the **IIITDM Kancheepuram 24-Hour Web Development Hackathon (October 2026)**.
+
+# Secure-Guard
+

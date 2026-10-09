@@ -1,0 +1,10 @@
+{
+  "description": "Enables travelers to quickly submit emergency info, access location-based risks, multilingual support, and find nearby safe zones with clear guidance.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

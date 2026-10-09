@@ -1,6 +1,6 @@
 import React from 'react';
 import { EmergencyContact } from '../types';
-import { Phone, X, AlertTriangle, ShieldCheck, ExternalLink, HelpCircle } from 'lucide-react';
+import { Phone, X } from 'lucide-react';
 
 interface EmergencyContactsModalProps {
   isOpen: boolean;

@@ -12,7 +12,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "SafeRoute Crisis Communication API",
-        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "version": "1.0.0"
     }
 
@@ -32,7 +32,7 @@ def get_system_status(db: Session = Depends(get_db)):
 
     last_refresh = max(
         (s.last_success_at for s in sources if s.last_success_at),
-        default=datetime.datetime.utcnow()
+        default=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     )
 
     return {

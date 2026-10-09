@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { SystemStatus } from '../types';
 
 interface SystemNoticeBannerProps {

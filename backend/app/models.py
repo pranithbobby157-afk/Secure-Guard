@@ -5,6 +5,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from app.database import Base
 
+def get_utc_now():
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 class Source(Base):
     __tablename__ = "sources"
 
@@ -14,8 +18,8 @@ class Source(Base):
     base_url = Column(String, nullable=True)
     geographic_coverage = Column(String, nullable=False)
     authority_level = Column(String, nullable=False)
-    last_attempt_at = Column(DateTime, default=datetime.datetime.utcnow)
-    last_success_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_attempt_at = Column(DateTime, default=get_utc_now)
+    last_success_at = Column(DateTime, default=get_utc_now)
     health_status = Column(String, default="healthy")  # healthy, degraded, unavailable
     attribution_text = Column(String, nullable=False)
 
@@ -52,10 +56,10 @@ class Alert(Base):
     hazard_type = Column(String, nullable=False)  # cyclone, flood, heavy_rain, waterlogging, storm
     severity = Column(String, nullable=False)      # critical, warning, watch, advisory
     status = Column(String, default="active")       # active, expired, cancelled
-    issued_at = Column(DateTime, default=datetime.datetime.utcnow)
+    issued_at = Column(DateTime, default=get_utc_now)
     effective_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
-    retrieved_at = Column(DateTime, default=datetime.datetime.utcnow)
+    retrieved_at = Column(DateTime, default=get_utc_now)
     source_url = Column(String, nullable=True)
     verification_status = Column(String, default="official_source")  # official_source, editor_verified, simulated
     is_simulated = Column(Boolean, default=False)
@@ -81,7 +85,7 @@ class SafeZone(Base):
     source_name = Column(String, nullable=False)
     source_url = Column(String, nullable=True)
     verification_status = Column(String, default="official_verified")
-    last_verified_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_verified_at = Column(DateTime, default=get_utc_now)
     operational_status = Column(String, default="open")  # open, on_standby, unverified
     capacity_notes = Column(String, nullable=True)
     contact_phone = Column(String, nullable=True)
@@ -101,7 +105,7 @@ class Translation(Base):
     translated_instruction = Column(Text, nullable=True)
     provider = Column(String, default="SafeRoute Linguistic Engine")
     source_text_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
 
     alert = relationship("Alert", back_populates="translations")
 
@@ -127,7 +131,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, default="editor")  # admin, editor
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
 
 
 class AuditLog(Base):
@@ -138,5 +142,5 @@ class AuditLog(Base):
     action = Column(String, nullable=False)
     entity_type = Column(String, nullable=False)
     entity_id = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=get_utc_now)
     details_json = Column(Text, nullable=True)

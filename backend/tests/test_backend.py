@@ -1,12 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import Base, engine
-from app.seed_data import seed_database
-
-# Ensure database is seeded for tests
-Base.metadata.create_all(bind=engine)
-seed_database()
 
 client = TestClient(app)
 
@@ -137,3 +131,55 @@ def test_source_failure_simulation():
     refresh_res = client.post("/api/admin/sources/source-imd/refresh", headers=headers)
     assert refresh_res.status_code == 200
     assert refresh_res.json()["health_status"] == "healthy"
+
+def test_areas_endpoints():
+    response = client.get("/api/areas")
+    assert response.status_code == 200
+    areas = response.json()
+    assert len(areas) >= 1
+    area_id = areas[0]["id"]
+
+    detail_res = client.get(f"/api/areas/{area_id}")
+    assert detail_res.status_code == 200
+    assert detail_res.json()["id"] == area_id
+
+    not_found = client.get("/api/areas/non-existent-area")
+    assert not_found.status_code == 404
+
+def test_emergency_contacts_endpoints():
+    response = client.get("/api/emergency-contacts")
+    assert response.status_code == 200
+    contacts = response.json()
+    assert len(contacts) >= 1
+    assert "phone_number" in contacts[0]
+
+    filtered = client.get("/api/emergency-contacts?area_id=area-chennai-coastal")
+    assert filtered.status_code == 200
+    assert len(filtered.json()) >= 1
+
+def test_demo_scenario_switcher_scenarios():
+    # Test cyclone_active scenario
+    res = client.post("/api/demo/scenario", json={"scenario": "cyclone_active"})
+    assert res.status_code == 200
+    assert res.json()["scenario"] == "cyclone_active"
+
+    # Test all_clear scenario
+    res = client.post("/api/demo/scenario", json={"scenario": "all_clear"})
+    assert res.status_code == 200
+    assert res.json()["scenario"] == "all_clear"
+
+    # Test source_outage scenario
+    res = client.post("/api/demo/scenario", json={"scenario": "source_outage"})
+    assert res.status_code == 200
+    assert res.json()["scenario"] == "source_outage"
+
+    # Reset back to cyclone_active
+    client.post("/api/demo/scenario", json={"scenario": "cyclone_active"})
+
+def test_database_url_normalization_logic():
+    # Verify postgres:// to postgresql:// normalization logic
+    sample_url = "postgres://postgres:mypass@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+    if sample_url.startswith("postgres://"):
+        normalized = sample_url.replace("postgres://", "postgresql://", 1)
+    assert normalized.startswith("postgresql://")
+

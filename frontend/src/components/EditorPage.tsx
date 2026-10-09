@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { Alert, Area, AuditLog, Source, SystemStatus } from '../types';
+import { Alert, Area, AuditLog, SystemStatus } from '../types';
 import { Copy } from '../i18n/messages';
 import { Icon } from './Icon';
 import { Page } from './Header';

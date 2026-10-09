@@ -15,7 +15,7 @@ def seed_database():
             print("Database already contains data, skipping seed.")
             return
 
-        print("Seeding database with realistic crisis data...")
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
         # 1. Sources
         sources = [
@@ -26,8 +26,8 @@ def seed_database():
                 base_url="https://mausam.imd.gov.in",
                 geographic_coverage="National & Regional Specialised Centre Chennai",
                 authority_level="national_meteorological",
-                last_attempt_at=datetime.datetime.utcnow(),
-                last_success_at=datetime.datetime.utcnow(),
+                last_attempt_at=now,
+                last_success_at=now,
                 health_status="healthy",
                 attribution_text="Official Warning Bulletin: Regional Meteorological Centre (RMC), Chennai"
             ),
@@ -38,8 +38,8 @@ def seed_database():
                 base_url="https://tnsdma.tn.gov.in",
                 geographic_coverage="Tamil Nadu State",
                 authority_level="state_disaster_authority",
-                last_attempt_at=datetime.datetime.utcnow(),
-                last_success_at=datetime.datetime.utcnow(),
+                last_attempt_at=now,
+                last_success_at=now,
                 health_status="healthy",
                 attribution_text="State Emergency Operations Centre (SEOC), Chepauk, Chennai"
             ),
@@ -50,8 +50,8 @@ def seed_database():
                 base_url="https://chennaicorporation.gov.in",
                 geographic_coverage="Chennai Metropolitan Area",
                 authority_level="municipal_corporation",
-                last_attempt_at=datetime.datetime.utcnow(),
-                last_success_at=datetime.datetime.utcnow(),
+                last_attempt_at=now,
+                last_success_at=now,
                 health_status="healthy",
                 attribution_text="GCC 24x7 Integrated Emergency Disaster Command Centre, Ripon Building"
             )

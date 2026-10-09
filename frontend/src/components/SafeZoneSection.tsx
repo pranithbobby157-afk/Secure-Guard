@@ -1,6 +1,6 @@
 import React from 'react';
 import { SafeZone } from '../types';
-import { Shield, MapPin, Phone, Building2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, MapPin, Phone, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface SafeZoneSectionProps {
   safeZones: SafeZone[];
@@ -9,7 +9,7 @@ interface SafeZoneSectionProps {
 
 export const SafeZoneSection: React.FC<SafeZoneSectionProps> = ({
   safeZones,
-  userLocation
+  userLocation: _userLocation
 }) => {
   return (
     <section aria-label="Designated Relief Shelters" style={{ marginTop: '1.5rem' }}>

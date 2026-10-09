@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio, Zap, ShieldAlert, CheckCircle, WifiOff } from 'lucide-react';
+import { Radio, ShieldAlert, CheckCircle, WifiOff } from 'lucide-react';
 
 interface DemoScenarioBarProps {
   onSelectScenario: (scenario: string) => void;

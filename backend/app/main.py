@@ -9,11 +9,22 @@ from app.seed_data import seed_database
 from app.models import Alert, Source
 from app.routers import alerts, safe_zones, areas, contacts, translations, status, auth, admin
 
+import logging
+
+logger = logging.getLogger("saferoute")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize schema and seed data on startup
-    Base.metadata.create_all(bind=engine)
-    seed_database()
+    try:
+        Base.metadata.create_all(bind=engine)
+        seed_database()
+        logger.info("Database schema verified and initial seed ensured.")
+    except Exception as e:
+        logger.error(f"Database initialization encountered an error: {type(e).__name__}: {e}")
+        from app.config import ENVIRONMENT
+        if ENVIRONMENT == "production":
+            raise
     yield
 
 app = FastAPI(

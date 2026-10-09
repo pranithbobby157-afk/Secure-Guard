@@ -97,7 +97,7 @@ def get_or_create_translation(
         translated_instruction=translated_inst,
         provider="SafeRoute Crisis Linguistic Engine v1.0",
         source_text_hash=text_hash,
-        created_at=datetime.datetime.utcnow()
+        created_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     )
     db.add(translation)
     db.commit()

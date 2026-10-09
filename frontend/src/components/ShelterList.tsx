@@ -48,7 +48,7 @@ export const ShelterList: React.FC<ShelterListProps> = ({ safeZones, t }) => {
 
       <div className="shelter-list" aria-label={t.alternative}>
         {safeZones.length > 0 ? (
-          safeZones.map((sz, index) => {
+          safeZones.map((sz, _index) => {
             const distanceText =
               sz.distance_km != null
                 ? `${sz.distance_km.toFixed(1)} km`

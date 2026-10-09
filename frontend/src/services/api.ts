@@ -9,7 +9,9 @@ import {
   Source
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
+// Configurable base URL: supports VITE_API_BASE_URL (Render backend) or fallback to local
+const rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
+export const API_BASE = rawBase.replace(/\/+$/, '');
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
@@ -18,7 +20,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers || {})
   };
 
-  const response = await fetch(url, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (_networkError: any) {
+    throw new Error(
+      `Unable to connect to SafeRoute API at ${API_BASE}. ` +
+      `Please check internet connectivity or verify that the backend server is running.`
+    );
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
     let errorDetail = `Error ${response.status}: ${response.statusText}`;
@@ -26,11 +37,22 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       const parsed = JSON.parse(errorText);
       if (parsed.detail) errorDetail = parsed.detail;
     } catch {
-      // ignore
+      // Use status text if not JSON
     }
+    
+    if (response.status === 401) {
+      // If unauthorized, signal session invalidation
+      console.warn('SafeRoute API: Unauthorized request (401)');
+    }
+    
     throw new Error(errorDetail);
   }
-  return response.json();
+
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(`Invalid JSON response received from ${endpoint}`);
+  }
 }
 
 export const api = {

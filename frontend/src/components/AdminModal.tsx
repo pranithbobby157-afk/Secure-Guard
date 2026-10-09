@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Area, AuditLog, Source } from '../types';
-import { Lock, X, PlusCircle, RefreshCw, Activity, ShieldCheck, History, LogOut } from 'lucide-react';
+import { Lock, X, PlusCircle, RefreshCw, Activity, History, LogOut } from 'lucide-react';
 
 interface AdminModalProps {
   isOpen: boolean;

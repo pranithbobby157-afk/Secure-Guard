@@ -52,12 +52,16 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
     return localStorage.getItem('saferoute_auth_user') || null;
   });
+  const [userRole, setUserRole] = useState<string | null>(() => {
+    return localStorage.getItem('saferoute_auth_role') || null;
+  });
 
   // Google OAuth states
   const [_googleSession, setGoogleSession] = useState<SupabaseSession | null>(null);
   const [googleUser, setGoogleUser] = useState<SupabaseUser | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [googleRoleStatus, setGoogleRoleStatus] = useState<'verifying' | 'assigned' | 'unassigned' | null>(null);
 
   const [preview, setPreview] = useState(false);
   const [username, setUsername] = useState('');
@@ -70,6 +74,48 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Server-side role verification for Google OAuth session
+  const syncGoogleSession = async (session: SupabaseSession | null) => {
+    setGoogleSession(session);
+    setGoogleUser(session?.user || null);
+
+    if (!session || !session.access_token) {
+      setGoogleRoleStatus(null);
+      return;
+    }
+
+    setGoogleRoleStatus('verifying');
+    try {
+      // Query trusted backend /api/auth/me using the verified Supabase Auth token
+      const profile = await api.getMe(session.access_token);
+      if (profile && (profile.role === 'admin' || profile.role === 'editor')) {
+        setAuthToken(session.access_token);
+        setCurrentUser(profile.username || session.user?.email || 'Authorized User');
+        setUserRole(profile.role);
+        setGoogleRoleStatus('assigned');
+        localStorage.setItem('saferoute_auth_token', session.access_token);
+        localStorage.setItem('saferoute_auth_user', profile.username || session.user?.email || '');
+        localStorage.setItem('saferoute_auth_role', profile.role);
+      } else {
+        // Authenticated with Google but not granted admin or editor privileges
+        setAuthToken(null);
+        setUserRole('visitor');
+        setGoogleRoleStatus('unassigned');
+        localStorage.removeItem('saferoute_auth_token');
+        localStorage.removeItem('saferoute_auth_user');
+        localStorage.removeItem('saferoute_auth_role');
+      }
+    } catch {
+      // HTTP 403 or server error: account is not authorized as admin/editor
+      setAuthToken(null);
+      setUserRole('visitor');
+      setGoogleRoleStatus('unassigned');
+      localStorage.removeItem('saferoute_auth_token');
+      localStorage.removeItem('saferoute_auth_user');
+      localStorage.removeItem('saferoute_auth_role');
+    }
+  };
 
   // Initialize and listen to Supabase Google Auth sessions
   useEffect(() => {
@@ -91,11 +137,10 @@ export const EditorPage: React.FC<EditorPageProps> = ({
       }
     }
 
-    // 2. Restore existing Google session from storage
+    // 2. Restore existing Google session from storage and verify role
     getGoogleSession().then((session) => {
       if (session) {
-        setGoogleSession(session);
-        setGoogleUser(session.user);
+        syncGoogleSession(session);
       }
     });
 
@@ -103,14 +148,14 @@ export const EditorPage: React.FC<EditorPageProps> = ({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
         if (session) {
-          setGoogleSession(session);
-          setGoogleUser(session.user);
+          syncGoogleSession(session);
           setIsGoogleLoading(false);
           setGoogleError(null);
         }
       } else if (event === 'SIGNED_OUT') {
         setGoogleSession(null);
         setGoogleUser(null);
+        setGoogleRoleStatus(null);
       }
     });
 
@@ -137,8 +182,10 @@ export const EditorPage: React.FC<EditorPageProps> = ({
       const res = await api.login(username, password);
       setAuthToken(res.access_token);
       setCurrentUser(res.username);
+      setUserRole(res.role);
       localStorage.setItem('saferoute_auth_token', res.access_token);
       localStorage.setItem('saferoute_auth_user', res.username);
+      localStorage.setItem('saferoute_auth_role', res.role);
       setPreview(false);
     } catch (err: any) {
       setAuthError(err.message || 'Invalid username or password.');
@@ -150,9 +197,11 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const handleLogout = async () => {
     setAuthToken(null);
     setCurrentUser(null);
+    setUserRole(null);
     setPreview(false);
     localStorage.removeItem('saferoute_auth_token');
     localStorage.removeItem('saferoute_auth_user');
+    localStorage.removeItem('saferoute_auth_role');
     if (googleUser) {
       await handleGoogleSignOut();
     }
@@ -181,6 +230,13 @@ export const EditorPage: React.FC<EditorPageProps> = ({
       await signOutGoogle();
       setGoogleSession(null);
       setGoogleUser(null);
+      setGoogleRoleStatus(null);
+      setAuthToken(null);
+      setCurrentUser(null);
+      setUserRole(null);
+      localStorage.removeItem('saferoute_auth_token');
+      localStorage.removeItem('saferoute_auth_user');
+      localStorage.removeItem('saferoute_auth_role');
     } catch (err: any) {
       alert(`Could not sign out of Google: ${err.message}`);
     }
@@ -263,7 +319,9 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                   <div>
                     <strong>Signed in as {googleUser.email}</strong>
                     <p className="mt-0.5 text-[11px] text-[#475467]">
-                      Google Verified · Visitor / Crisis Viewer
+                      {googleRoleStatus === 'verifying'
+                        ? 'Verifying administrative authorization…'
+                        : 'Google Verified · Visitor / Crisis Viewer (Unassigned)'}
                     </p>
                   </div>
                   <button
@@ -275,7 +333,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] border-t border-teal-200/60 pt-2 text-[#475467]">
-                  Note: Administrative operations (creating alerts, toggling feeds) require an authorized administrator or editor account.
+                  Note: Administrative operations (creating alerts, toggling feeds) require an authorized administrator or editor account. This Google account ({googleUser.email}) is not currently assigned an administrative role.
                 </p>
               </div>
             ) : (
@@ -412,6 +470,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
         <div className="mt-8 pt-4 border-t border-white/10 lg:absolute lg:bottom-6 lg:left-5 lg:right-5">
           <div className="text-xs text-slate-400 mb-2">
             Active: <b>{currentUser || (googleUser?.email ? `${googleUser.email} (Google)` : 'Demo Editor (Preview)')}</b>
+            {userRole && <span className="ml-1 text-[11px] font-semibold uppercase tracking-wider text-teal-300">({userRole})</span>}
           </div>
           <button
             type="button"
@@ -428,7 +487,11 @@ export const EditorPage: React.FC<EditorPageProps> = ({
         <div className="ops-header">
           <div>
             <span className="demo-badge">
-              {authToken ? 'AUTHENTICATED EDITOR' : t.simulation}
+              {authToken
+                ? userRole === 'admin'
+                  ? 'AUTHENTICATED ADMINISTRATOR'
+                  : 'AUTHENTICATED EDITOR'
+                : t.simulation}
             </span>
             <h1>{t.operations}</h1>
           </div>

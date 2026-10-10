@@ -174,12 +174,15 @@ export async function authenticateUser(
     }
 
     const authUser = authData.user;
-    const userEmail = authUser.email;
+    const rawEmail = authUser.email;
+    const userEmail = rawEmail ? rawEmail.toLowerCase().trim() : undefined;
     const userId = authUser.id;
 
     // Strict role check: OAuth users must be explicitly registered in public.users to access privileged operations
     let query = supabase.from('users').select('*');
-    if (userEmail) {
+    if (userEmail && rawEmail && userEmail !== rawEmail) {
+      query = query.or(`id.eq.${userId},username.eq.${userEmail},username.eq.${rawEmail}`);
+    } else if (userEmail) {
       query = query.or(`id.eq.${userId},username.eq.${userEmail}`);
     } else {
       query = query.eq('id', userId);

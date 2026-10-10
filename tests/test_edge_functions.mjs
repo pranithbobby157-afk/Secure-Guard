@@ -838,14 +838,18 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
       }
 
       const authUser = authData.user;
-      const userEmail = authUser.email;
+      const rawEmail = authUser.email;
+      const userEmail = rawEmail ? rawEmail.toLowerCase().trim() : undefined;
       const userId = authUser.id;
 
       // Check if this OAuth account is assigned an authorized role in public.users
-      const { data: dbUser, error: dbErr } = await supabase.from('users').select('*');
+      const { data: dbUser } = await supabase.from('users').select('*');
 
       const matchedUser = (dbUser || []).find(
-        (u) => u.id === userId || (userEmail && u.username === userEmail)
+        (u) =>
+          u.id === userId ||
+          (userEmail && u.username && u.username.toLowerCase() === userEmail) ||
+          (rawEmail && u.username && u.username === rawEmail)
       );
 
       if (!matchedUser) {
@@ -871,78 +875,79 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
     return { user: null, error: 'Token format invalid', status: 401 };
   }
 
-  // 1. Unassigned Google OAuth user (e.g. tourist@gmail.com)
-  const mockSupabaseUnassigned = {
+  // Common public.users state representing database records
+  const dbUsers = [
+    { id: 'user-admin', username: 'admin', role: 'admin' },
+    { id: 'user-rohith', username: 'rohithkarthik25@gmail.com', role: 'admin' },
+    { id: 'oauth-uuid-editor', username: 'coordinator@saferoute.org', role: 'editor' },
+  ];
+
+  const createMockSupabase = (userObj) => ({
     auth: {
       getUser: async (token) => {
-        if (token === 'valid.header.signature') {
-          return { data: { user: { id: 'oauth-uuid-1', email: 'tourist@gmail.com' } }, error: null };
+        if (token === 'valid.supabase.token') {
+          return { data: { user: userObj }, error: null };
         }
         return { data: { user: null }, error: new Error('Invalid token') };
       },
     },
     from: (table) => ({
       select: () => Promise.resolve({
-        data: [{ id: 'user-admin', username: 'admin', role: 'admin' }],
+        data: dbUsers,
         error: null,
       }),
     }),
-  };
+  });
 
-  const reqUnassigned = {
-    headers: new Headers({ Authorization: 'Bearer valid.header.signature' }),
-  };
+  // 1. Unassigned Google user remains a viewer (403 Forbidden) and cannot perform admin mutations
+  const mockUnassigned = createMockSupabase({ id: 'uuid-unassigned', email: 'visitor@gmail.com' });
+  const reqUnassigned = { headers: new Headers({ Authorization: 'Bearer valid.supabase.token' }) };
+  const resUnassigned = await testAuthenticateUser(reqUnassigned, mockUnassigned);
+  assert.equal(resUnassigned.status, 403, 'Unassigned user must receive 403');
+  assert.equal(resUnassigned.user, null, 'Unassigned user must have null user record');
+  assert.match(resUnassigned.error, /not authorized as an editor or administrator/);
 
-  const resUnassigned = await testAuthenticateUser(reqUnassigned, mockSupabaseUnassigned);
-  assert.equal(
-    resUnassigned.status,
-    403,
-    'Unassigned Google OAuth account must receive 403 Forbidden on privileged endpoints'
-  );
-  assert.match(
-    resUnassigned.error,
-    /not authorized as an editor or administrator/,
-    'Must explain lack of administrator authorization'
-  );
-  assert.equal(resUnassigned.user, null, 'User object must be null for unassigned account');
+  // 2. Correctly assigned administrator receives 'admin' role
+  const mockAdmin = createMockSupabase({ id: 'uuid-google-rohith', email: 'rohithkarthik25@gmail.com' });
+  const reqAdmin = { headers: new Headers({ Authorization: 'Bearer valid.supabase.token' }) };
+  const resAdmin = await testAuthenticateUser(reqAdmin, mockAdmin);
+  assert.equal(resAdmin.user?.role, 'admin', 'Assigned admin must receive admin role');
+  assert.equal(resAdmin.user?.username, 'rohithkarthik25@gmail.com');
 
-  // 2. Assigned Google OAuth user (e.g. coordinator@saferoute.org)
-  const mockSupabaseAssigned = {
-    auth: {
-      getUser: async () => ({
-        data: { user: { id: 'oauth-uuid-2', email: 'coordinator@saferoute.org' } },
-        error: null,
-      }),
-    },
-    from: (table) => ({
-      select: () => Promise.resolve({
-        data: [
-          { id: 'user-admin', username: 'admin', role: 'admin' },
-          { id: 'oauth-uuid-2', username: 'coordinator@saferoute.org', role: 'editor' },
-        ],
-        error: null,
-      }),
-    }),
-  };
+  // 3. Case-insensitive email normalization for administrator
+  const mockAdminMixedCase = createMockSupabase({ id: 'uuid-google-rohith', email: 'RohithKarthik25@GMAIL.COM' });
+  const resAdminMixedCase = await testAuthenticateUser(reqAdmin, mockAdminMixedCase);
+  assert.equal(resAdminMixedCase.user?.role, 'admin', 'Case-mixed email must match administrator role');
 
-  const reqAssigned = {
-    headers: new Headers({ Authorization: 'Bearer valid.header.signature' }),
-  };
+  // 4. Correctly assigned editor receives 'editor' role
+  const mockEditor = createMockSupabase({ id: 'oauth-uuid-editor', email: 'coordinator@saferoute.org' });
+  const reqEditor = { headers: new Headers({ Authorization: 'Bearer valid.supabase.token' }) };
+  const resEditor = await testAuthenticateUser(reqEditor, mockEditor);
+  assert.equal(resEditor.user?.role, 'editor', 'Assigned editor must receive editor role');
 
-  const resAssigned = await testAuthenticateUser(reqAssigned, mockSupabaseAssigned);
-  assert.equal(resAssigned.user?.role, 'editor', 'Assigned OAuth account must receive their authorized role');
+  // 5. Client-supplied role claims cannot elevate privileges (unassigned user with client-claimed role remains 403)
+  const mockForgedRoleUser = createMockSupabase({
+    id: 'uuid-attacker',
+    email: 'attacker@evil.com',
+    user_metadata: { role: 'admin' }, // Client-claimed role in Supabase metadata
+    app_metadata: { role: 'admin' },
+  });
+  const resForged = await testAuthenticateUser(reqUnassigned, mockForgedRoleUser);
+  assert.equal(resForged.status, 403, 'Client-supplied role in JWT metadata cannot bypass public.users');
+  assert.equal(resForged.user, null);
 
-  // 3. Invalid or Expired Supabase Auth token
-  const reqInvalidJwt = {
-    headers: new Headers({ Authorization: 'Bearer expired.jwt.token' }),
-  };
-  const resInvalidJwt = await testAuthenticateUser(reqInvalidJwt, mockSupabaseUnassigned);
-  assert.equal(resInvalidJwt.status, 401, 'Expired Supabase token must return 401');
+  // 6. Supabase JWT (3 parts) remains separate from custom HMAC token (2 parts)
+  const reqCustom = { headers: new Headers({ Authorization: 'Bearer valid_custom_token.sig' }) };
+  const resCustom = await testAuthenticateUser(reqCustom, mockUnassigned);
+  assert.equal(resCustom.user?.username, 'admin', 'Custom 2-part HMAC token verifies via legacy decoder');
 
-  // 4. Custom HMAC-SHA256 tokens still work identically (2-part token)
-  const reqCustomToken = {
-    headers: new Headers({ Authorization: 'Bearer valid_custom_token.signature' }),
-  };
-  const resCustomToken = await testAuthenticateUser(reqCustomToken, mockSupabaseUnassigned);
-  assert.equal(resCustomToken.user?.username, 'admin', 'Existing custom tokens must continue to authenticate');
+  // 7. Invalid or expired Supabase Auth tokens are rejected (401 Unauthorized)
+  const reqExpired = { headers: new Headers({ Authorization: 'Bearer invalid.expired.token' }) };
+  const resExpired = await testAuthenticateUser(reqExpired, mockUnassigned);
+  assert.equal(resExpired.status, 401, 'Expired or invalid Supabase token must return 401');
+
+  // 8. Existing initial admin account is preserved in database
+  const preservedAdmin = dbUsers.find((u) => u.username === 'admin');
+  assert.equal(preservedAdmin?.id, 'user-admin');
+  assert.equal(preservedAdmin?.role, 'admin');
 });

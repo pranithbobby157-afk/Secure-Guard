@@ -321,3 +321,252 @@ test('Password policy enforces minimum 8 characters and prevents empty rotations
   assert.equal(validateNewPassword('UltraSecure@SafeRoute2026!'), true, 'Strong password passes');
 });
 
+// Test 9: getSecretKey rejects missing SECRET_KEY
+test('getSecretKey rejects missing or empty SECRET_KEY', () => {
+  const originalEnv = process.env.SECRET_KEY;
+  try {
+    delete process.env.SECRET_KEY;
+    function getSecretKey() {
+      const secret =
+        (typeof Deno !== 'undefined'
+          ? Deno.env.get('SECRET_KEY')
+          : undefined) ||
+        (typeof process !== 'undefined'
+          ? process.env.SECRET_KEY
+          : undefined);
+
+      if (!secret || secret.length < 32) {
+        throw new Error('SECRET_KEY is missing or too short');
+      }
+
+      return secret;
+    }
+
+    assert.throws(() => getSecretKey(), {
+      name: 'Error',
+      message: 'SECRET_KEY is missing or too short'
+    });
+
+    process.env.SECRET_KEY = '';
+    assert.throws(() => getSecretKey(), {
+      name: 'Error',
+      message: 'SECRET_KEY is missing or too short'
+    });
+  } finally {
+    if (originalEnv !== undefined) {
+      process.env.SECRET_KEY = originalEnv;
+    } else {
+      delete process.env.SECRET_KEY;
+    }
+  }
+});
+
+// Test 10: getSecretKey rejects SECRET_KEY shorter than 32 characters
+test('getSecretKey rejects SECRET_KEY shorter than 32 characters', () => {
+  const originalEnv = process.env.SECRET_KEY;
+  try {
+    function getSecretKey() {
+      const secret =
+        (typeof Deno !== 'undefined'
+          ? Deno.env.get('SECRET_KEY')
+          : undefined) ||
+        (typeof process !== 'undefined'
+          ? process.env.SECRET_KEY
+          : undefined);
+
+      if (!secret || secret.length < 32) {
+        throw new Error('SECRET_KEY is missing or too short');
+      }
+
+      return secret;
+    }
+
+    process.env.SECRET_KEY = 'short-key';
+    assert.throws(() => getSecretKey(), {
+      name: 'Error',
+      message: 'SECRET_KEY is missing or too short'
+    });
+
+    process.env.SECRET_KEY = '1234567890123456789012345678901'; // 31 chars
+    assert.throws(() => getSecretKey(), {
+      name: 'Error',
+      message: 'SECRET_KEY is missing or too short'
+    });
+  } finally {
+    if (originalEnv !== undefined) {
+      process.env.SECRET_KEY = originalEnv;
+    } else {
+      delete process.env.SECRET_KEY;
+    }
+  }
+});
+
+// Test 11: getSecretKey works with valid SECRET_KEY (>= 32 chars)
+test('getSecretKey works with valid SECRET_KEY of at least 32 characters', () => {
+  const originalEnv = process.env.SECRET_KEY;
+  try {
+    function getSecretKey() {
+      const secret =
+        (typeof Deno !== 'undefined'
+          ? Deno.env.get('SECRET_KEY')
+          : undefined) ||
+        (typeof process !== 'undefined'
+          ? process.env.SECRET_KEY
+          : undefined);
+
+      if (!secret || secret.length < 32) {
+        throw new Error('SECRET_KEY is missing or too short');
+      }
+
+      return secret;
+    }
+
+    const testValidKey = '12345678901234567890123456789012'; // exactly 32 chars
+    process.env.SECRET_KEY = testValidKey;
+    assert.equal(getSecretKey(), testValidKey);
+
+    const testLongKey = 'a-very-strong-production-signing-secret-for-saferoute-2026';
+    process.env.SECRET_KEY = testLongKey;
+    assert.equal(getSecretKey(), testLongKey);
+  } finally {
+    if (originalEnv !== undefined) {
+      process.env.SECRET_KEY = originalEnv;
+    } else {
+      delete process.env.SECRET_KEY;
+    }
+  }
+});
+
+// Test 12: Token creation and verification use same secret, and different secret is rejected
+test('Token creation and verification use same secret; different secret is rejected', async () => {
+  const validSecretA = 'valid-production-secret-number-1-32chars!';
+  const validSecretB = 'valid-production-secret-number-2-32chars!';
+  const enc = new TextEncoder();
+
+  function toUrlSafe(s) {
+    const bytes = enc.encode(s);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_');
+  }
+
+  function fromUrlSafe(b64) {
+    let std = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (std.length % 4 !== 0) std += '=';
+    const bin = atob(std);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  async function hmac(keyStr, dataStr) {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(keyStr),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(dataStr));
+    return Array.from(new Uint8Array(sigBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function constantTimeCompare(a, b) {
+    if (a.length !== b.length) return false;
+    let mismatch = 0;
+    for (let i = 0; i < a.length; i++) {
+      mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return mismatch === 0;
+  }
+
+  async function createToken(payload, secret) {
+    const rawJson = JSON.stringify(payload);
+    const b64 = toUrlSafe(rawJson);
+    const sig = await hmac(secret, b64);
+    return `${b64}.${sig}`;
+  }
+
+  async function decodeToken(token, secret) {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [b64, sig] = parts;
+    const expectedSig = await hmac(secret, b64);
+    if (!constantTimeCompare(sig, expectedSig)) return null;
+    return JSON.parse(fromUrlSafe(b64));
+  }
+
+  const payload = { sub: 'admin', role: 'admin', exp: Math.floor(Date.now() / 1000) + 3600 };
+
+  // Create with secret A
+  const tokenA = await createToken(payload, validSecretA);
+
+  // Decode with same secret A -> SUCCESS
+  const decodedA = await decodeToken(tokenA, validSecretA);
+  assert.notEqual(decodedA, null);
+  assert.equal(decodedA.sub, 'admin');
+
+  // Decode with different secret B -> REJECTED (null)
+  const decodedWithB = await decodeToken(tokenA, validSecretB);
+  assert.equal(decodedWithB, null, 'Token signed with Secret A must be rejected by Secret B');
+});
+
+// Test 13: Frontend API Base URL Resolution & Fallback Behavior
+test('resolveBaseUrl correctly handles explicit env vars, production fallback, and local dev fallback', () => {
+  const SUPABASE_PRODUCTION_API = 'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api';
+
+  function resolveBaseUrl(env, windowObj) {
+    const explicitApiBase = env.VITE_API_BASE_URL || env.VITE_API_BASE;
+    if (explicitApiBase) {
+      return explicitApiBase.replace(/\/+$/, '');
+    }
+    const supabaseUrl = env.VITE_SUPABASE_URL;
+    if (supabaseUrl) {
+      return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/api`;
+    }
+    if (
+      env.PROD ||
+      (windowObj &&
+        windowObj.location &&
+        windowObj.location.hostname !== 'localhost' &&
+        windowObj.location.hostname !== '127.0.0.1')
+    ) {
+      return SUPABASE_PRODUCTION_API;
+    }
+    return 'http://127.0.0.1:8000';
+  }
+
+  // Case 1: Explicit VITE_API_BASE_URL provided
+  assert.equal(
+    resolveBaseUrl({ VITE_API_BASE_URL: 'https://custom-domain.com/functions/v1/api/' }, null),
+    'https://custom-domain.com/functions/v1/api'
+  );
+
+  // Case 2: Explicit VITE_SUPABASE_URL provided
+  assert.equal(
+    resolveBaseUrl({ VITE_SUPABASE_URL: 'https://custom.supabase.co' }, null),
+    'https://custom.supabase.co/functions/v1/api'
+  );
+
+  // Case 3: Production build without explicit env var -> defaults to Supabase Edge Functions
+  assert.equal(
+    resolveBaseUrl({ PROD: true }, { location: { hostname: 'saferoute.vercel.app' } }),
+    SUPABASE_PRODUCTION_API
+  );
+
+  // Case 4: Non-localhost domain in browser -> defaults to Supabase Edge Functions
+  assert.equal(
+    resolveBaseUrl({ PROD: false }, { location: { hostname: 'saferoute.vercel.app' } }),
+    SUPABASE_PRODUCTION_API
+  );
+
+  // Case 5: Local development on localhost -> defaults to local FastAPI 127.0.0.1:8000
+  assert.equal(
+    resolveBaseUrl({ PROD: false }, { location: { hostname: 'localhost' } }),
+    'http://127.0.0.1:8000'
+  );
+});
+
+

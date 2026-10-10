@@ -9,8 +9,11 @@ import {
   Source
 } from '../types';
 
+// Production Supabase Edge Functions API fallback
+export const SUPABASE_PRODUCTION_API = 'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api';
+
 // Configurable base URL: supports Supabase Edge Functions, Render backend, or fallback to local FastAPI
-function resolveBaseUrl(): string {
+export function resolveBaseUrl(): string {
   const explicitApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE;
   if (explicitApiBase) {
     return explicitApiBase.replace(/\/+$/, '');
@@ -19,10 +22,22 @@ function resolveBaseUrl(): string {
   if (supabaseUrl) {
     return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/api`;
   }
+  // Safe production fallback: when deployed to Vercel or any non-localhost domain,
+  // or when built for production (import.meta.env.PROD), use Supabase Edge Functions.
+  // Never default to http://127.0.0.1:8000 on deployed domains, which causes mixed-content failure.
+  if (
+    import.meta.env.PROD ||
+    (typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1')
+  ) {
+    return SUPABASE_PRODUCTION_API;
+  }
   return 'http://127.0.0.1:8000';
 }
 
 export const API_BASE = resolveBaseUrl();
+console.info(`[SafeRoute API] Initialized API_BASE: ${API_BASE}`);
 
 /**
  * Normalizes API endpoint URLs across backend topologies:
@@ -65,7 +80,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   let response: Response;
   try {
     response = await fetch(url, { ...options, headers });
-  } catch {
+  } catch (fetchError) {
+    console.warn(`[SafeRoute API] Network request to ${url} failed:`, fetchError);
     throw new Error(
       `Unable to connect to SafeRoute API at ${API_BASE}. ` +
       `Please check internet connectivity or verify that the backend server is running.`

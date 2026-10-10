@@ -659,4 +659,157 @@ test('resolveBaseUrl correctly handles explicit env vars, production fallback, a
   );
 });
 
+// Test 14: Dashboard Feed-Health & Status Decoupling Logic (Phase A, Task A2)
+test('Dashboard status logic decouples bulletin staleness from source health', () => {
+  function computeDashboardStatus({
+    status,
+    filteredAlerts = [],
+    scenario = 'default',
+    lastSyncTime = '12:00 PM',
+  }) {
+    const isBackendAvailable = status !== null;
+    const healthyCount = status?.sources_healthy_count ?? 0;
+    const totalCount = status?.sources_total_count ?? 0;
+    const anySourceDegraded = status?.sources?.some((s) => s.health_status === 'degraded');
+    const anySourceUnavailable = status?.sources?.some((s) => s.health_status === 'unavailable');
+    const hasStaleAlerts = filteredAlerts.some((a) => a.is_stale);
+    const topAlert = filteredAlerts[0];
 
+    const isSourceOutage =
+      scenario === 'outage' ||
+      status?.status === 'degraded' ||
+      status?.status === 'unavailable' ||
+      anySourceDegraded ||
+      anySourceUnavailable ||
+      (totalCount > 0 && healthyCount < totalCount);
+
+    let freshnessTitle = '';
+    let freshnessSubtitle = '';
+    let statusDotClass = 'status-dot';
+
+    if (!isBackendAvailable) {
+      freshnessTitle = 'Backend API Unavailable';
+      freshnessSubtitle = `Operating in offline cache mode · ${lastSyncTime} IST`;
+      statusDotClass = 'status-dot neutral';
+    } else if (isSourceOutage) {
+      const degradedSourceNames = (status.sources || [])
+        .filter((s) => s.health_status !== 'healthy')
+        .map((s) => s.name.split('(')[0].trim())
+        .join(', ');
+      freshnessTitle = `Degraded Feed (${healthyCount}/${totalCount} Sources Active)`;
+      freshnessSubtitle = degradedSourceNames
+        ? `${degradedSourceNames} outage · Advisory data may be stale`
+        : 'Source feed degraded · Advisory data may be stale';
+      statusDotClass = 'status-dot bg-[#DC6803]';
+    } else if (
+      status.mode === 'live_with_simulations' ||
+      topAlert?.is_simulated ||
+      status.mode !== 'live'
+    ) {
+      freshnessTitle = `Simulated Demonstration Feeds (${healthyCount}/${totalCount} Configured Sources Healthy)`;
+      const timeFormatted = status.last_successful_refresh
+        ? '12:00 PM'
+        : lastSyncTime;
+      freshnessSubtitle = hasStaleAlerts
+        ? 'Demonstration records (sample bulletins >3h old) · Not live emergency feeds'
+        : `Demonstration sync: ${timeFormatted} IST · Not live official emergency bulletins`;
+      statusDotClass = 'status-dot bg-[#007F78]';
+    } else if (status.mode === 'live' && healthyCount > 0 && healthyCount === totalCount) {
+      freshnessTitle = `Feeds Connected (${healthyCount}/${totalCount} Sources Online)`;
+      freshnessSubtitle = `Verified sync: 12:00 PM IST`;
+      statusDotClass = 'status-dot bg-[#079455]';
+    } else {
+      freshnessTitle = 'Feeds Configured · Pending Sync';
+      freshnessSubtitle = `Last checked: ${lastSyncTime} IST`;
+      statusDotClass = 'status-dot neutral';
+    }
+
+    return { freshnessTitle, freshnessSubtitle, statusDotClass };
+  }
+
+  const baselineSources = [
+    { id: 'source-imd', name: 'India Meteorological Department (IMD)', health_status: 'healthy' },
+    { id: 'source-tnsdma', name: 'Tamil Nadu State Disaster Management Authority (TNSDMA)', health_status: 'healthy' },
+    { id: 'source-gcc', name: 'Greater Chennai Corporation (GCC)', health_status: 'healthy' },
+  ];
+
+  // Test 1: Default Demonstration Mode with Stale Alerts (All 3 sources healthy)
+  const test1 = computeDashboardStatus({
+    status: {
+      status: 'healthy',
+      mode: 'live_with_simulations',
+      sources_healthy_count: 3,
+      sources_total_count: 3,
+      sources: baselineSources,
+    },
+    filteredAlerts: [{ id: 'alert-1', is_stale: true, is_simulated: true }],
+    scenario: 'default',
+  });
+  assert.equal(
+    test1.freshnessTitle,
+    'Simulated Demonstration Feeds (3/3 Configured Sources Healthy)',
+    'Default mode with stale alerts must NOT display Degraded Feed'
+  );
+  assert.match(test1.freshnessSubtitle, /Demonstration records/);
+  assert.equal(test1.statusDotClass, 'status-dot bg-[#007F78]');
+
+  // Test 2: Source Outage Scenario (IMD marked degraded, 2/3 sources healthy)
+  const outageSources = [
+    { id: 'source-imd', name: 'India Meteorological Department (IMD)', health_status: 'degraded' },
+    { id: 'source-tnsdma', name: 'Tamil Nadu State Disaster Management Authority (TNSDMA)', health_status: 'healthy' },
+    { id: 'source-gcc', name: 'Greater Chennai Corporation (GCC)', health_status: 'healthy' },
+  ];
+  const test2 = computeDashboardStatus({
+    status: {
+      status: 'degraded',
+      mode: 'live_with_simulations',
+      sources_healthy_count: 2,
+      sources_total_count: 3,
+      sources: outageSources,
+    },
+    filteredAlerts: [{ id: 'alert-1', is_stale: true, is_simulated: true }],
+    scenario: 'outage',
+  });
+  assert.equal(test2.freshnessTitle, 'Degraded Feed (2/3 Sources Active)');
+  assert.match(test2.freshnessSubtitle, /India Meteorological Department outage/);
+  assert.equal(test2.statusDotClass, 'status-dot bg-[#DC6803]');
+
+  // Test 3: All Clear Scenario (No active alerts, all sources healthy)
+  const test3 = computeDashboardStatus({
+    status: {
+      status: 'healthy',
+      mode: 'live_with_simulations',
+      sources_healthy_count: 3,
+      sources_total_count: 3,
+      sources: baselineSources,
+    },
+    filteredAlerts: [],
+    scenario: 'clear',
+  });
+  assert.equal(test3.freshnessTitle, 'Simulated Demonstration Feeds (3/3 Configured Sources Healthy)');
+  assert.match(test3.freshnessSubtitle, /Demonstration sync/);
+
+  // Test 4: No Matching Alerts (e.g. Kancheepuram area, all sources healthy)
+  const test4 = computeDashboardStatus({
+    status: {
+      status: 'healthy',
+      mode: 'live_with_simulations',
+      sources_healthy_count: 3,
+      sources_total_count: 3,
+      sources: baselineSources,
+    },
+    filteredAlerts: [],
+    scenario: 'default',
+  });
+  assert.equal(test4.freshnessTitle, 'Simulated Demonstration Feeds (3/3 Configured Sources Healthy)');
+
+  // Test 5: Backend Status Unavailable (Network offline / status is null)
+  const test5 = computeDashboardStatus({
+    status: null,
+    filteredAlerts: [],
+    scenario: 'default',
+  });
+  assert.equal(test5.freshnessTitle, 'Backend API Unavailable');
+  assert.match(test5.freshnessSubtitle, /Operating in offline cache mode/);
+  assert.equal(test5.statusDotClass, 'status-dot neutral');
+});

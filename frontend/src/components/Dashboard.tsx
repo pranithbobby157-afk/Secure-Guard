@@ -65,6 +65,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const anySourceUnavailable = status?.sources.some((s) => s.health_status === 'unavailable');
   const hasStaleAlerts = filteredAlerts.some((a) => a.is_stale);
 
+  // A feed degradation is triggered by real source outage or degradation, not bulletin age
+  const isSourceOutage =
+    scenario === 'outage' ||
+    status?.status === 'degraded' ||
+    status?.status === 'unavailable' ||
+    anySourceDegraded ||
+    anySourceUnavailable ||
+    (totalCount > 0 && healthyCount < totalCount);
+
   let freshnessTitle = '';
   let freshnessSubtitle = '';
   let statusDotClass = 'status-dot';
@@ -74,14 +83,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     freshnessTitle = 'Backend API Unavailable';
     freshnessSubtitle = `Operating in offline cache mode · ${lastSyncTime} IST`;
     statusDotClass = 'status-dot neutral';
-  } else if (
-    scenario === 'outage' ||
-    status?.status === 'degraded' ||
-    anySourceDegraded ||
-    anySourceUnavailable ||
-    hasStaleAlerts
-  ) {
-    // State D/E: Source data stale or source unavailable (partial degradation)
+  } else if (isSourceOutage) {
+    // State D/E: Actual source outage or degraded service
     const degradedSourceNames = status.sources
       .filter((s) => s.health_status !== 'healthy')
       .map((s) => s.name.split('(')[0].trim())
@@ -91,20 +94,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
       ? `${degradedSourceNames} outage · Advisory data may be stale`
       : 'Source feed degraded · Advisory data may be stale';
     statusDotClass = 'status-dot bg-[#DC6803]';
-  } else if (status.mode === 'live_with_simulations' || topAlert?.is_simulated) {
-    // State F: Demonstration or simulated data
-    freshnessTitle = `Simulated Demonstration Feeds (${healthyCount}/${totalCount} Online)`;
+  } else if (
+    status.mode === 'live_with_simulations' ||
+    topAlert?.is_simulated ||
+    status.mode !== 'live'
+  ) {
+    // State F: Demonstration or simulated data (all configured sources healthy)
+    freshnessTitle = `Simulated Demonstration Feeds (${healthyCount}/${totalCount} Configured Sources Healthy)`;
     const timeFormatted = status.last_successful_refresh
       ? new Date(status.last_successful_refresh).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit'
         })
       : lastSyncTime;
-    freshnessSubtitle = `Simulated sync: ${timeFormatted} IST · Not live bulletins`;
+    freshnessSubtitle = hasStaleAlerts
+      ? 'Demonstration records (sample bulletins >3h old) · Not live emergency feeds'
+      : `Demonstration sync: ${timeFormatted} IST · Not live official emergency bulletins`;
     statusDotClass = 'status-dot bg-[#007F78]';
-  } else if (healthyCount > 0 && healthyCount === totalCount) {
-    // State C: Source adapter successfully retrieved live information
-    freshnessTitle = `Authoritative Feeds Connected (${healthyCount}/${totalCount})`;
+  } else if (status.mode === 'live' && healthyCount > 0 && healthyCount === totalCount) {
+    // State C: Production live mode (only if verified live mode is active)
+    freshnessTitle = `Feeds Connected (${healthyCount}/${totalCount} Sources Online)`;
     const timeFormatted = status.last_successful_refresh
       ? new Date(status.last_successful_refresh).toLocaleTimeString([], {
           hour: '2-digit',

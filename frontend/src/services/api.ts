@@ -9,21 +9,63 @@ import {
   Source
 } from '../types';
 
-// Configurable base URL: supports VITE_API_BASE_URL (Render backend) or fallback to local
-const rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
-export const API_BASE = rawBase.replace(/\/+$/, '');
+// Configurable base URL: supports Supabase Edge Functions, Render backend, or fallback to local FastAPI
+function resolveBaseUrl(): string {
+  const explicitApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE;
+  if (explicitApiBase) {
+    return explicitApiBase.replace(/\/+$/, '');
+  }
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (supabaseUrl) {
+    return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/api`;
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE = resolveBaseUrl();
+
+/**
+ * Normalizes API endpoint URLs across backend topologies:
+ * - Supabase unified Edge Function router (e.g. /functions/v1/api/...)
+ * - Supabase individual Edge Functions (e.g. /functions/v1/...)
+ * - Python FastAPI server (e.g. http://127.0.0.1:8000/api/...)
+ */
+export function buildApiUrl(endpoint: string): string {
+  const isSupabaseFunctions = API_BASE.includes('/functions/v1');
+
+  if (isSupabaseFunctions) {
+    if (API_BASE.endsWith('/api')) {
+      // Unified router mounted at /functions/v1/api
+      const clean = endpoint.replace(/^\/?api/, '');
+      return `${API_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
+    } else {
+      // Individual edge functions mounted directly at /functions/v1
+      let clean = endpoint.replace(/^\/?api/, '');
+      if (clean.startsWith('/demo/scenario')) {
+        clean = clean.replace('/demo/scenario', '/demo-scenario');
+      }
+      return `${API_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
+    }
+  }
+
+  // Standard FastAPI backend expecting /api prefix
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_BASE}${path}`;
+}
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
-  const headers = {
+  const url = buildApiUrl(endpoint);
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers || {})
+    ...(anonKey && API_BASE.includes('supabase.co') ? { apikey: anonKey } : {}),
+    ...(options.headers as Record<string, string> || {})
   };
 
   let response: Response;
   try {
     response = await fetch(url, { ...options, headers });
-  } catch (_networkError: any) {
+  } catch {
     throw new Error(
       `Unable to connect to SafeRoute API at ${API_BASE}. ` +
       `Please check internet connectivity or verify that the backend server is running.`
@@ -41,7 +83,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
     
     if (response.status === 401) {
-      // If unauthorized, signal session invalidation
       console.warn('SafeRoute API: Unauthorized request (401)');
     }
     

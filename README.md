@@ -1,147 +1,289 @@
 # SafeRoute 🛡️
-### Real-Time Crisis Communication for Tourists During Extreme Weather Events
+### Real-Time Crisis Communication & Shelter Navigation for Tourists During Extreme Weather Events
 
-**Target Hackathon:** IIITDM Kancheepuram 24-Hour Web Development Hackathon  
-**Domain:** TravelTech  
+[![Production Status](https://img.shields.io/badge/Production-Live-success?style=for-the-badge&logo=vercel)](https://secure-route-delta.vercel.app)
+[![Supabase Backend](https://img.shields.io/badge/Supabase-Active-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![React 19](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Tests Passing](https://img.shields.io/badge/Tests-30%2F30%20Passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/rohithkarthik25-code/Secure-Route)
+
+**Event:** IIITDM Kancheepuram 24-Hour Web Development Hackathon  
+**Track:** TravelTech  
 **Team / Project:** Bits & Bytes — SafeRoute  
+**Live Production URL:** [https://secure-route-delta.vercel.app](https://secure-route-delta.vercel.app)  
+**Cloud Backend & Edge Functions:** Supabase (`ijbsprdkrhnimhiknpxe`)  
+**Official GitHub Repository:** [rohithkarthik25-code/Secure-Route](https://github.com/rohithkarthik25-code/Secure-Route.git)  
+
+---
+
+## 🎥 Hackathon Demo Video
+
+> **Google Drive Demo Video Link:**  
+> 🔗 **[Watch the SafeRoute Demo Video on Google Drive](https://drive.google.com/drive/folders/1eZV0XeShkFdx9qnvbQTdoYXOF3zmAeMg?usp=drive_link)**  
+>  
+> *A full step-by-step video script, presenter screenplay, and timestamps are available in [`DEMO_VIDEO_SCRIPT.md`](DEMO_VIDEO_SCRIPT.md).*
 
 ---
 
 ## 📌 Problem Statement & Context
 
-When localized extreme weather events occur — such as severe cyclones, intense monsoonal cloudbursts, and flash flooding in coastal Tamil Nadu (Chennai, Kancheepuram, and Nilgiris) — foreign and visiting tourists are acutely vulnerable:
-- **Language Barriers:** Emergency broadcasts and disaster management notices issued in local languages (e.g. Tamil) are unintelligible to international and non-local travellers.
-- **Geographic Unfamiliarity:** Tourists cannot interpret local administrative boundaries, low-lying flood-prone roads (e.g., Velachery, Madipakkam, ECR), or identify verified designated emergency shelters.
-- **Information Fragmentation:** Critical advisories are scattered across disparate portals, leading tourists to rely on chaotic social media rumours or wander into inundated danger zones.
+When localized extreme weather disasters strike coastal tourist hubs — such as severe cyclones, monsoonal cloudbursts, and flash flooding in Tamil Nadu (Chennai Coastal Zone, Kancheepuram, and the Nilgiris) — visiting domestic and foreign tourists are uniquely vulnerable:
+
+1. **Severe Language Barriers:** Official emergency bulletins and evacuation orders issued in regional scripts (e.g., Tamil) cannot be understood by international travellers or domestic tourists from non-Tamil-speaking states.
+2. **Geographic Unfamiliarity:** Tourists cannot interpret local administrative boundaries, flood-prone low-lying thoroughfares (e.g., Velachery, Madipakkam, ECR, OMR), or locate officially designated government relief shelters.
+3. **Information Fragmentation & Social Media Panic:** Unverified WhatsApp rumors and sensationalized social media claims cause dangerous confusion, often leading panic-stricken tourists directly into submerged corridors.
 
 ---
 
 ## 💡 The SafeRoute Solution
 
-**SafeRoute** is an authoritative, multilingual crisis communication and shelter navigation web platform designed specifically for travellers caught in extreme weather disasters.
+**SafeRoute** is an authoritative, multilingual crisis communication and shelter navigation web platform designed specifically for tourists and non-local travellers caught in extreme weather emergencies.
 
 ### Core Ethical & Safety Mandates:
-1. **Never Invent Safety:** SafeRoute never declares an unmonitored location "safe" merely because no alert is listed.
-2. **Preserve Original Texts:** Translations are displayed **side-by-side** with the authoritative government notice to preserve original proper nouns, dates, and instructions.
-3. **No Login Friction:** Public tourists access all life-safety advisories with zero registration or credentials required.
-4. **Resilient Degraded States:** If an upstream weather API goes down, SafeRoute explicitly shows an amber warning with the last cached timestamp rather than misleading users with "0 alerts".
-5. **No Dangerous Pathfinding:** Straight-line distances to designated shelters are marked as approximations; SafeRoute never claims an unverified flooded road is safe to cross.
+- **Zero Login Friction:** Public tourists access all life-safety advisories, shelter directories, route checks, and emergency phrasebooks with zero registration, login, or credentials required.
+- **Never Invent Safety:** SafeRoute never declares an unmonitored area "safe" merely because no alert is listed. Missing data is surfaced with clear caveats.
+- **Side-by-Side Linguistic Preservation:** Translations into Tamil, Hindi, French, and English are displayed alongside the authoritative government bulletin to preserve original proper nouns, evacuation coordinates, and contact details.
+- **Transparent Degraded Feed Monitoring:** If an upstream government feed encounters downtime, SafeRoute prominently displays an amber degraded status with the last cached timestamp rather than falsely claiming "0 active alerts".
+- **Zero-Knowledge Location Privacy:** Tourist geolocation coordinates are computed strictly in browser RAM for Haversine distance calculations and are **never** persisted to server logs, databases, or tracking telemetry.
+- **Approximation Disclaimers:** Straight-line distances to designated relief shelters are explicitly marked as approximations; SafeRoute never claims an unmonitored flooded road is safe to cross.
 
 ---
 
-## 🛠️ Technology Stack
+## 🚀 Key Modules & Capabilities
+
+### 1. 🌐 Real-Time Multi-Hazard Crisis Dashboard (`/`)
+- Aggregates live advisories across cyclones, storm surges, extreme rain, and urban waterlogging.
+- Displays issuing department provenance (IMD, TNSDMA, GCC), severity badges, and actionable instructions.
+- Includes continuous upstream feed health monitoring with automatic degraded state fallback.
+
+### 2. 🗺️ Interactive Conditions & Geospatial Shelter Map (`/map`)
+- Built with custom Leaflet layers displaying live hazard danger zones (pulsating red/amber zones) and verified government relief shelters (emerald shield pins).
+- **"Use My Location"** one-click GPS positioning centers the map and sorts shelters by straight-line proximity.
+- Interactive popups display shelter capacity, 24/7 contact phone numbers, and operational status.
+
+### 3. 🛣️ Route & Travel Corridor Check with 1-Click Re-Routing (`/routes`)
+- Calculates transit safety vectors between regional tourist hubs (e.g., Chennai ⇄ Mahabalipuram, Chennai ⇄ Pondicherry).
+- **Embedded Corridor Map:** Renders the route corridor polyline, a 20 km geographic safety buffer zone, and intersecting active hazard warnings.
+- **"Re-route to Live Map":** Instantly redirects the user to the full interactive crisis map centered on affected transit regions.
+- **Offline Route Saving:** Lets travellers save evaluated corridors to browser `localStorage` for offline access during network blackouts.
+
+### 4. 🔍 WhatsApp & Social Media Rumor Verification Engine (`/verify`)
+- Counteracts viral misinformation during disaster scenarios.
+- Performs multi-token linguistic cross-matching against official government bulletins.
+- Delivers instant verdict badges: **"OFFICIAL MATCH"** with source provenance or **"UNVERIFIED / RUMOR"** with corrective context.
+
+### 5. 🗣️ Offline Multilingual Emergency Phrasebook (`/phrasebook`)
+- Essential crisis phrases categorized by *Medical & First Aid*, *Shelter & Evacuation*, *Transit & Movement*, and *Food & Water*.
+- Full translations in **English**, **தமிழ் (Tamil)**, and **हिन्दी (Hindi)**.
+- **Web Speech API Audio Pronunciation:** Plays synthesized local speech for on-the-ground communication with rescue workers.
+- **1-Tap Clipboard Copy:** Quick-copy local script for messaging and SMS.
+
+### 6. 💾 Saved Offline Resources (`/saved`)
+- Persists pinned emergency shelters, evaluated route corridors, and critical advisories in browser local storage.
+- Operates reliably even during cellular network congestion or complete mobile data loss.
+
+### 7. ⚡ High-Contrast SOS Quick Mode
+- Accessible via the **Quick Mode** button in the header.
+- Designed for low-battery, low-bandwidth, high-stress disaster conditions.
+- Strips heavy graphics to present high-contrast, one-tap emergency helpline dialers (**112**, **1070**, **1913**, **108**) and immediate shelter details.
+
+### 8. 🔒 Role-Based Operations Portal & Editor Access (`/editor`)
+- Multi-tier access control guarded by PostgreSQL Row-Level Security (RLS) policies:
+  - **Citizen User (`user`):** Accesses verified visitor portal, personalized safety status, and crisis navigation.
+  - **Crisis Editor (`editor`):** Authorized to register verified relief shelters and publish crisis bulletins.
+  - **System Administrator (`admin`):** Full control over data source telemetry toggles, shelter registries, and immutable audit logs.
+- **Google OAuth Single Sign-On:** Integrated via Supabase Auth with automatic user-to-role provisioning.
+- **Shelter & Place Registration (`CreateSafeZoneModal`):** Complete registration interface with GPS coordinate capture.
+- **Alert Broadcasting (`CreateAlertModal`):** Geocoded alert publisher with latitude and longitude plotting.
+
+---
+
+## 🛠️ Architecture & Technology Stack
+
+SafeRoute features a resilient **dual-stack backend architecture**: a serverless cloud backend deployed on **Supabase Edge Functions** with **PostgreSQL**, alongside a lightweight local **FastAPI** backend for zero-cloud environments.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SafeRoute Web Client                            │
+│           (React 19, TypeScript, Vite, Leaflet, Custom CSS)            │
+└───────────────────┬────────────────────────────────┬───────────────────┘
+                    │                                │
+            (Cloud Production)                 (Local Fallback)
+                    ▼                                ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────┐
+│       Supabase Edge Functions        │  │       FastAPI Backend        │
+│          (Deno, TypeScript)          │  │        (Python 3.14)         │
+│  - REST API Routing & Handlers       │  │  - SQLAlchemy, Pydantic v2   │
+│  - JWT & HMAC Auth Gateways          │  │  - SQLite (WAL Mode)         │
+│  - Multi-source Ingestion Engine     │  │  - Haversine Distance Engine │
+└───────────────────┬──────────────────┘  └──────────────────────────────┘
+                    ▼
+┌──────────────────────────────────────┐
+│         Supabase PostgreSQL          │
+│   - Row Level Security (RLS)         │
+│   - Users, Alerts, Safe Zones        │
+│   - Sources, Translations, Audits    │
+└──────────────────────────────────────┘
+```
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 19, TypeScript, Vite, Leaflet, Lucide Icons, Custom CSS Design System |
-| **Backend** | Python 3.14, FastAPI, SQLAlchemy (WAL mode), Pydantic v2 |
-| **Data Store** | SQLite (zero-config, high-performance local & server deployment) |
-| **Geospatial** | Leaflet OpenStreetMap tiles, Haversine spherical distance engine |
-| **Testing** | Pytest test suite, FastAPI TestClient |
-| **Authentication** | HMAC tamper-evident token system, role-based authorization |
+| **Frontend Framework** | React 19, TypeScript 5.9, Vite 8, React DOM |
+| **Geospatial & Mapping** | Leaflet 1.9, OpenStreetMap Tiles, Haversine Spherical Distance Engine |
+| **Styling & UI** | Custom CSS Design System, Responsive Glassmorphism, Outfit & Inter Typography |
+| **Cloud Backend** | Supabase Edge Functions (Deno / TypeScript), RESTful API Architecture |
+| **Cloud Database** | PostgreSQL 15 on Supabase with Row Level Security (RLS) on all 8 tables |
+| **Authentication** | Supabase Auth (Google OAuth 2.0 Web Client) + HMAC SHA-256 Bearer Tokens |
+| **Local Backend** | Python 3.14, FastAPI, SQLAlchemy (WAL Mode), Pydantic v2, SQLite |
+| **Hosting & Deployment** | Vercel (Frontend CI/CD & Production Build), Supabase Cloud |
+| **Testing** | Node.js Test Runner (18 tests), Pytest (12 tests) |
 
 ---
 
-## 🚀 Key Features
+## 🔐 Role-Based Access Control (RBAC) Matrix
 
-- **🌐 Multilingual Crisis Engine:** Dynamic side-by-side translation into **English**, **தமிழ் (Tamil)**, **हिन्दी (Hindi)**, and **Français (French)** with source text hashing and linguistic caching.
-- **🗺️ Interactive Geospatial Map:** Custom Leaflet layers displaying hazard zones (red/amber circles), verified relief shelters (emerald shield markers), and user position beacon with accessible list alternative.
-- **📍 Location-Aware Shelter Locator:** Computes approximate straight-line distance to nearby relief hubs using browser geolocation (retained solely in memory for privacy).
-- **🚨 Scenario Simulation Switcher:** Built-in presenter control bar allowing judges to switch between:
-  1. *Cyclone Red Alert* (active crisis)
-  2. *All Clear* (disclaimers & vigilance)
-  3. *Source Outage* (stale data & degraded feed resilience)
-- **🔒 Authenticated Editor Portal:** Role-guarded administrative portal to curate simulated advisories, monitor feed health, and review immutable audit logs.
-- **📞 Regional Emergency Helplines:** One-click directory of verified emergency numbers for the jurisdiction (**112**, **1070**, **1913**, **108**, **1077**).
+| Capability | Citizen User (`user`) | Crisis Editor (`editor`) | System Administrator (`admin`) |
+|---|:---:|:---:|:---:|
+| View Public Alerts, Shelters & Routes | ✅ | ✅ | ✅ |
+| Access Emergency Phrasebook & Quick Mode | ✅ | ✅ | ✅ |
+| Verify Rumors Against Bulletins | ✅ | ✅ | ✅ |
+| Access Operations Portal (`/editor`) | ✅ (Citizen Portal) | ✅ (Operations Panel) | ✅ (Full Admin Control) |
+| Register New Safe Shelters / Places | ❌ | ✅ | ✅ |
+| Broadcast New Crisis Alerts | ❌ | ✅ | ✅ |
+| Toggle Upstream Data Sources (Simulation) | ❌ | ❌ | ✅ |
+| View Immutable System Audit Logs | ❌ | ❌ | ✅ |
 
----
-
-## ⚡ Quick Start & Run Instructions
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ and npm
-
-### Method 1: One-Click Runner (Windows)
-Double-click `run_dev.bat` in the root directory. It will start both the backend API and frontend dev server simultaneously in separate windows.
-
-### Method 2: Manual Terminal Startup
-
-#### 1. Backend Setup
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-Backend runs at: `http://127.0.0.1:8000`  
-Interactive API Docs (Swagger): `http://127.0.0.1:8000/docs`
-
-#### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev -- --host 127.0.0.1 --port 5173
-```
-Frontend runs at: `http://127.0.0.1:5173`
-
----
-
-## 🧪 Running Automated Tests
-
-SafeRoute includes a full backend test suite verifying alert schemas, staleness logic, Haversine distance calculations, translation caching, and admin authorization:
-
-```bash
-cd backend
-python -m pytest -v tests/
-```
-All 8 test suites pass with 100% success.
-
----
-
-## 📡 REST API Summary
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Health check & readiness probe |
-| `GET` | `/api/status` | System health, healthy source counts & last sync time |
-| `GET` | `/api/areas` | List supported geographic sectors (Chennai, Kancheepuram, Nilgiris) |
-| `GET` | `/api/alerts` | Query active alerts with area, hazard type, and severity filters |
-| `GET` | `/api/alerts/{id}` | Alert details with source provenance and staleness metadata |
-| `GET` | `/api/safe-zones` | Query relief centers with coordinates and user distance sorting |
-| `GET` | `/api/emergency-contacts` | Jurisdiction disaster helpline numbers (112, 1070, 1913) |
-| `GET` | `/api/translations/{id}` | Retrieve or generate translation for target language code |
-| `POST` | `/api/auth/login` | Authenticate editor/admin user |
-| `POST` | `/api/admin/alerts` | Publish curated or simulated crisis notice (Editor only) |
-| `POST` | `/api/admin/sources/{id}/toggle-status` | Simulate feed downtime for test demonstrations |
-| `GET` | `/api/admin/audit-logs` | Retrieve chronological server audit log trail |
-| `POST` | `/api/demo/scenario` | Presenter scenario switcher for judging demo |
+### Pre-configured Test Accounts:
+- **System Administrator:** `admin` / `admin123`
+- **Crisis Editor:** `editor` / `editor123`
+- **Standard User:** `user` / `user123`
+- **Google OAuth Sign-In:** Direct sign-in using the *"Continue with Google"* button.
 
 ---
 
 ## 🏛️ Authoritative Data Provenance
 
+All crisis alerts and bulletins displayed in SafeRoute originate from authoritative Indian disaster management bodies:
+
 1. **India Meteorological Department (IMD):** Regional Specialised Meteorological Centre (RSMC) Chennai bulletin feeds.
-2. **Tamil Nadu State Disaster Management Authority (TNSDMA):** State Emergency Operations Centre (SEOC) directives.
-3. **Greater Chennai Corporation (GCC):** 24x7 Flood Control Room & Ripon Building relief shelter registry.
+2. **Tamil Nadu State Disaster Management Authority (TNSDMA):** State Emergency Operations Centre (SEOC) directives and color-coded advisories.
+3. **Greater Chennai Corporation (GCC):** 24x7 Flood Control Room & Ripon Building designated relief shelter registry.
 
 ---
 
-## 🔒 Privacy & Security
+## 🧪 Automated Testing Suite
 
-- **Zero Location Logging:** User coordinates are processed in browser RAM and are never persisted to database tables, logs, or analytics.
-- **Role-Based Server Guards:** Public endpoints are read-only. Mutation endpoints verify JWT/HMAC bearer tokens.
-- **Audit Logging:** Every administrative action is recorded with actor ID, timestamp, and payload changes.
+SafeRoute enforces rigorous automated testing across both edge and backend runtimes:
+
+### 1. Edge Functions Test Suite (Node.js)
+```bash
+node tests/test_edge_functions.mjs
+```
+```
+✔ Password hashing and verification matches SafeRoute specification
+✔ HMAC-SHA256 Token matches Python backend token contract
+✔ Haversine distance calculation and sorting
+✔ Ingestion freshness correctly computes staleness based on hours and source health
+✔ Multilingual translation dictionary produces expected localized titles
+✔ buildApiUrl normalizes endpoints for both Supabase Edge Functions and FastAPI
+✔ Strict token decoder rejects expired tokens, missing claims, and tampered signatures
+✔ Password policy enforces minimum 8 characters and prevents empty rotations
+✔ getSecretKey rejects missing or empty SECRET_KEY
+✔ getSecretKey rejects SECRET_KEY shorter than 32 characters
+✔ getSecretKey works with valid SECRET_KEY of at least 32 characters
+✔ Token creation and verification use same secret; different secret is rejected
+✔ resolveBaseUrl correctly handles explicit env vars, production fallback, and local dev fallback
+✔ Dashboard status logic decouples bulletin staleness from source health
+✔ Google OAuth tokens are verified via Supabase Auth and isolated from administrative privileges
+✔ Route corridor calculation evaluates distance and intersects active hazard buffers
+✔ Message verification correctly identifies official matches, partial matches, and rejects unverified rumors
+✔ Multilingual emergency phrasebook contains all required categories and distinct translations
+
+Tests: 18 passed, 0 failed, 100% success rate
+```
+
+### 2. Python Backend Test Suite (Pytest)
+```bash
+cd backend
+pytest tests/
+```
+```
+12 passed in 0.26s (100% success rate)
+```
+
+### 3. Frontend Production Build & TypeScript Verification
+```bash
+cd frontend
+npm run build
+```
+```
+✓ 90 modules transformed.
+dist/index.html                   1.25 kB
+dist/assets/index.css            98.09 kB
+dist/assets/index.js            776.79 kB
+✓ built in 462ms (0 TypeScript errors)
+```
 
 ---
 
-## 🎬 Demo Video Guide
-A 3-minute video script formatted for hackathon evaluation is available at:  
-👉 [`docs/demo_script.md`](file:///c:/Users/bf772/OneDrive/Desktop/NEW_HACKATHON/docs/demo_script.md)
+## ⚡ Quick Start & Local Run Guide
+
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.10+ (optional, for local FastAPI backend)
+
+### Method 1: Frontend against Production Cloud (Recommended)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173). The frontend connects seamlessly to the live Supabase Cloud Edge Functions.
+
+### Method 2: One-Click Local Full-Stack (Windows)
+Double-click `run_dev.bat` in the project root to spin up both the FastAPI backend and Vite frontend dev server in separate terminal windows.
+
+### Method 3: Manual Terminal Startup
+```bash
+# Terminal 1: Backend
+cd backend
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+# Terminal 2: Frontend
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
 
 ---
 
-## 👥 Hackathon Credits
-Built with ❤️ by team **Bits & Bytes** for the **IIITDM Kancheepuram 24-Hour Web Development Hackathon (October 2026)**.
+## 📡 REST & Edge Functions API Reference
 
-# Secure-Guard
+| Method | Endpoint | Access Level | Description |
+|---|---|:---:|---|
+| `GET` | `/api/health` | Public | System readiness & health check |
+| `GET` | `/api/status` | Public | Upstream source telemetry, sync timestamps & degraded flags |
+| `GET` | `/api/areas` | Public | Supported geographic sectors (Chennai, Kancheepuram, Nilgiris) |
+| `GET` | `/api/alerts` | Public | Active crisis bulletins filtered by area, severity, and hazard |
+| `GET` | `/api/alerts/:id` | Public | Detailed alert with source provenance & staleness metrics |
+| `GET` | `/api/safe-zones` | Public | Designated relief shelters with lat/lng coordinates and capacity |
+| `GET` | `/api/emergency-contacts` | Public | Jurisdiction helpline directory (112, 1070, 1913, 108) |
+| `GET` | `/api/translations/:id` | Public | Dual-language side-by-side translation payloads (EN, TA, HI, FR) |
+| `POST` | `/api/auth/login` | Public | Authenticate `admin`, `editor`, or `user` accounts |
+| `GET` | `/api/auth/me` | Authenticated | Validate session and retrieve authenticated role permissions |
+| `POST` | `/api/admin/alerts` | Editor / Admin | Publish new crisis notice with geocoded coordinates |
+| `POST` | `/api/admin/safe-zones` | Editor / Admin | Register new verified relief shelter with coordinates & capacity |
+| `POST` | `/api/admin/sources/:id/toggle-status` | Admin Only | Toggle upstream data source active status for disaster simulation |
+| `GET` | `/api/admin/audit-logs` | Admin Only | Retrieve immutable server audit log trail |
 
+---
+
+## 👥 Hackathon Team Credits
+
+Built with ❤️ by **Team Bits & Bytes** for the **IIITDM Kancheepuram 24-Hour Web Development Hackathon (October 2026)**.
+
+- **Lead Developer & System Architect:** Rohith Karthik ([@rohithkarthik25-code](https://github.com/rohithkarthik25-code))
+- **Official Repository:** [https://github.com/rohithkarthik25-code/Secure-Route.git](https://github.com/rohithkarthik25-code/Secure-Route.git)
+- **Demo Video:** [Google Drive Demo Folder](https://drive.google.com/drive/folders/1eZV0XeShkFdx9qnvbQTdoYXOF3zmAeMg?usp=drive_link)

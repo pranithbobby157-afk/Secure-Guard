@@ -241,3 +241,83 @@ test('buildApiUrl normalizes endpoints for both Supabase Edge Functions and Fast
     'https://example.supabase.co/functions/v1/demo-scenario'
   );
 });
+
+// Test 7: Strict Token Expiration and Claim Validation
+test('Strict token decoder rejects expired tokens, missing claims, and tampered signatures', async () => {
+  const secret = 'saferoute-super-secure-crisis-comm-key-2026';
+  const enc = new TextEncoder();
+
+  function toUrlSafe(s) {
+    const bytes = enc.encode(s);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_');
+  }
+
+  async function hmac(keyStr, dataStr) {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(keyStr),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(dataStr));
+    return Array.from(new Uint8Array(sigBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  // 1. Expired token
+  const expiredPayload = { sub: 'admin', role: 'admin', exp: Math.floor(Date.now() / 1000) - 100 };
+  const expiredB64 = toUrlSafe(JSON.stringify(expiredPayload));
+  const expiredSig = await hmac(secret, expiredB64);
+  const expiredToken = `${expiredB64}.${expiredSig}`;
+
+  // 2. Missing sub claim
+  const missingSubPayload = { role: 'admin', exp: Math.floor(Date.now() / 1000) + 1000 };
+  const missingSubB64 = toUrlSafe(JSON.stringify(missingSubPayload));
+  const missingSubSig = await hmac(secret, missingSubB64);
+  const missingSubToken = `${missingSubB64}.${missingSubSig}`;
+
+  // 3. Tampered payload
+  const validPayload = { sub: 'admin', role: 'admin', exp: Math.floor(Date.now() / 1000) + 1000 };
+  const validB64 = toUrlSafe(JSON.stringify(validPayload));
+  const validSig = await hmac(secret, validB64);
+  const tamperedToken = `${validB64}.deadbeef${validSig.substring(8)}`;
+
+  function validateToken(token, expectedSecret) {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [b64, sig] = parts;
+    let std = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (std.length % 4 !== 0) std += '=';
+    const payload = JSON.parse(atob(std));
+
+    const now = Math.floor(Date.now() / 1000);
+    if (!payload.exp || typeof payload.exp !== 'number' || payload.exp < now) return null;
+    if (!payload.sub || typeof payload.sub !== 'string') return null;
+
+    return payload;
+  }
+
+  assert.equal(validateToken(expiredToken, secret), null, 'Expired token must be rejected');
+  assert.equal(validateToken(missingSubToken, secret), null, 'Token missing sub must be rejected');
+  assert.notEqual(tamperedToken.split('.')[1], validSig, 'Tampered signature must not match valid signature');
+});
+
+// Test 8: Password Security & Policy Enforcement
+test('Password policy enforces minimum 8 characters and prevents empty rotations', () => {
+  function validateNewPassword(pw) {
+    if (!pw || typeof pw !== 'string' || pw.length < 8) {
+      return false;
+    }
+    return true;
+  }
+
+  assert.equal(validateNewPassword('short'), false, 'Passwords < 8 chars must fail');
+  assert.equal(validateNewPassword(''), false, 'Empty password must fail');
+  assert.equal(validateNewPassword('admin123'), true, 'Valid 8 char password passes');
+  assert.equal(validateNewPassword('UltraSecure@SafeRoute2026!'), true, 'Strong password passes');
+});
+

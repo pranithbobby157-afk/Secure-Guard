@@ -2,13 +2,22 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { User } from './types.ts';
 
 function getSecretKey(): string {
-  if (typeof Deno !== 'undefined' && Deno.env && typeof Deno.env.get === 'function') {
-    return Deno.env.get('SECRET_KEY') ?? 'saferoute-super-secure-crisis-comm-key-2026';
-  }
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.SECRET_KEY ?? 'saferoute-super-secure-crisis-comm-key-2026';
-  }
-  return 'saferoute-super-secure-crisis-comm-key-2026';
+  const envVal = (key: string): string | undefined => {
+    if (typeof Deno !== 'undefined' && Deno.env && typeof Deno.env.get === 'function') {
+      return Deno.env.get(key);
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[key];
+    }
+    return undefined;
+  };
+
+  return (
+    envVal('SECRET_KEY') ||
+    envVal('JWT_SECRET') ||
+    envVal('SUPABASE_SERVICE_ROLE_KEY') ||
+    'saferoute-super-secure-crisis-comm-key-2026'
+  );
 }
 
 export async function sha256Hex(text: string): Promise<string> {
@@ -111,8 +120,16 @@ export async function decodeAccessToken(
     const jsonStr = fromUrlSafeBase64(b64Payload);
     const payload = JSON.parse(jsonStr);
 
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
     const now = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && payload.exp < now) {
+    if (typeof payload.exp !== 'number' || payload.exp < now) {
+      return null;
+    }
+
+    if (!payload.sub || typeof payload.sub !== 'string') {
       return null;
     }
 
@@ -150,7 +167,7 @@ export async function authenticateUser(
     .from('users')
     .select('*')
     .eq('username', username)
-    .single();
+    .maybeSingle();
 
   if (dbErr || !user) {
     return {

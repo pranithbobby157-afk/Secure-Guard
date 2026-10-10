@@ -181,6 +181,10 @@ class UserOut(BaseModel):
     role: str
     created_at: datetime
 
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str
+
 # ----------------- Audit Log -----------------
 class AuditLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

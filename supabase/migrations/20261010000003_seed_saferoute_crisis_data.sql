@@ -167,14 +167,24 @@ VALUES
     ('contact-kancheepuram-1077', 'area-kancheepuram-inland', 'Kancheepuram District Disaster Management Cell', '1077', 'District Collectorate emergency line for inland relief and assistance.', 'https://kancheepuram.nic.in', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 6. Initial Admin User
+-- 6. Initial Admin User (Protected against duplicate username or id conflicts)
 INSERT INTO public.users (id, username, password_hash, role, created_at)
-VALUES
-    ('user-admin', 'admin', 'sha256$37be8953d50ee350158c7c8ed71e399e804b4cf312f39e8f7a0c60c3ad5bbfb7', 'admin', now())
-ON CONFLICT (id) DO NOTHING;
+SELECT 'user-admin', 'admin', 'sha256$37be8953d50ee350158c7c8ed71e399e804b4cf312f39e8f7a0c60c3ad5bbfb7', 'admin', now()
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.users WHERE username = 'admin' OR id = 'user-admin'
+);
 
--- 7. Initial System Audit Log
+-- 7. Initial System Audit Log (Resolves admin user foreign key dynamically)
 INSERT INTO public.audit_logs (id, user_id, action, entity_type, entity_id, timestamp, details_json)
-VALUES
-    ('audit-init-01', 'user-admin', 'SYSTEM_INITIALIZATION', 'system', 'saferoute-db', now(), '{"message": "SafeRoute crisis database initialized with authoritative baseline feeds."}')
-ON CONFLICT (id) DO NOTHING;
+SELECT
+    'audit-init-01',
+    (SELECT id FROM public.users WHERE username = 'admin' LIMIT 1),
+    'SYSTEM_INITIALIZATION',
+    'system',
+    'saferoute-db',
+    now(),
+    '{"message": "SafeRoute crisis database initialized with authoritative baseline feeds."}'
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.audit_logs WHERE id = 'audit-init-01'
+);
+

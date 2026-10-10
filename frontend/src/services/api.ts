@@ -147,6 +147,15 @@ export const api = {
     });
   },
 
+  changePassword: (token: string, payload: { old_password: string; new_password: string }) => {
+    return request<{ message: string }>('/api/auth/change-password', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+  },
+
+
   adminCreateAlert: (token: string, payload: any) => {
     return request<Alert>('/api/admin/alerts', {
       method: 'POST',

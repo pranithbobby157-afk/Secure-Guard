@@ -40,32 +40,55 @@ export const API_BASE = resolveBaseUrl();
 console.info(`[SafeRoute API] Initialized API_BASE: ${API_BASE}`);
 
 /**
- * Normalizes API endpoint URLs across backend topologies:
- * - Supabase unified Edge Function router (e.g. /functions/v1/api/...)
- * - Supabase individual Edge Functions (e.g. /functions/v1/...)
- * - Python FastAPI server (e.g. http://127.0.0.1:8000/api/...)
+ * Strips leading slashes and any duplicate '/api' or 'api/' prefixes from an endpoint.
+ * Preserves query parameters.
  */
-export function buildApiUrl(endpoint: string): string {
-  const isSupabaseFunctions = API_BASE.includes('/functions/v1');
+export function cleanEndpoint(endpoint: string): { path: string; queryString: string } {
+  const [rawPath, rawQuery] = endpoint.split('?');
+  let cleanPath = rawPath.replace(/^\/+/, '');
+  while (cleanPath.startsWith('api/') || cleanPath === 'api') {
+    cleanPath = cleanPath.slice(3).replace(/^\/+/, '');
+  }
+  const queryString = rawQuery !== undefined ? `?${rawQuery}` : '';
+  return { path: cleanPath, queryString };
+}
 
-  if (isSupabaseFunctions) {
-    if (API_BASE.endsWith('/api')) {
-      // Unified router mounted at /functions/v1/api
-      const clean = endpoint.replace(/^\/?api/, '');
-      return `${API_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
-    } else {
-      // Individual edge functions mounted directly at /functions/v1
-      let clean = endpoint.replace(/^\/?api/, '');
-      if (clean.startsWith('/demo/scenario')) {
-        clean = clean.replace('/demo/scenario', '/demo-scenario');
-      }
-      return `${API_BASE}${clean.startsWith('/') ? clean : `/${clean}`}`;
-    }
+/**
+ * Normalizes the base URL across topologies so that the '/api' prefix is present exactly once.
+ * - Supabase Edge Functions: .../functions/v1/api
+ * - Python FastAPI / standard backend: .../api
+ */
+export function normalizeBaseUrl(base: string): string {
+  let b = base.replace(/\/+$/, '');
+
+  if (b.includes('/functions/v1')) {
+    // Strip any trailing /api (handles /api or /api/api) then append exactly one /api
+    b = b.replace(/(\/api)+$/, '');
+    return `${b}/api`;
   }
 
-  // Standard FastAPI backend expecting /api prefix
-  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  return `${API_BASE}${path}`;
+  if (b.includes('supabase.co')) {
+    // Plain Supabase project URL (e.g. https://xyz.supabase.co)
+    b = b.replace(/(\/functions\/v1)?(\/api)*$/, '');
+    return `${b}/functions/v1/api`;
+  }
+
+  // Standard server (e.g. FastAPI at http://127.0.0.1:8000)
+  // Strip any trailing /api then append exactly one /api
+  b = b.replace(/(\/api)+$/, '');
+  return `${b}/api`;
+}
+
+/**
+ * Normalizes API endpoint URLs across backend topologies:
+ * - Ensures the final URL contains the '/api' prefix EXACTLY ONCE.
+ * - Works whether the endpoint is passed as '/status', 'status', '/api/status', etc.
+ * - Preserves query parameters (e.g. ?area_id=...).
+ */
+export function buildApiUrl(endpoint: string, base: string = API_BASE): string {
+  const normBase = normalizeBaseUrl(base);
+  const { path, queryString } = cleanEndpoint(endpoint);
+  return path ? `${normBase}/${path}${queryString}` : `${normBase}${queryString}`;
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -113,7 +136,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const api = {
-  getStatus: () => request<SystemStatus>('/api/status'),
+  getHealth: () => request<{ status: string }>('/health'),
+
+  getStatus: () => request<SystemStatus>('/status'),
 
   getAreas: () => request<Area[]>('/api/areas'),
 

@@ -195,50 +195,140 @@ test('Multilingual translation dictionary produces expected localized titles', (
   assert.equal(dictionaryMap.fr['Cyclone Warning'], 'Avis de cyclone');
 });
 
-// Test 6: API URL Normalization across topologies
-test('buildApiUrl normalizes endpoints for both Supabase Edge Functions and FastAPI', () => {
-  function buildApiUrl(base, endpoint) {
-    const isSupabaseFunctions = base.includes('/functions/v1');
-    if (isSupabaseFunctions) {
-      if (base.endsWith('/api')) {
-        const clean = endpoint.replace(/^\/?api/, '');
-        return `${base}${clean.startsWith('/') ? clean : `/${clean}`}`;
-      } else {
-        let clean = endpoint.replace(/^\/?api/, '');
-        if (clean.startsWith('/demo/scenario')) {
-          clean = clean.replace('/demo/scenario', '/demo-scenario');
-        }
-        return `${base}${clean.startsWith('/') ? clean : `/${clean}`}`;
-      }
+// Test 6: API URL Normalization across topologies without duplicate /api
+test('buildApiUrl normalizes endpoints for both Supabase Edge Functions and FastAPI without /api duplication', () => {
+  function cleanEndpoint(endpoint) {
+    const [rawPath, rawQuery] = endpoint.split('?');
+    let cleanPath = rawPath.replace(/^\/+/, '');
+    while (cleanPath.startsWith('api/') || cleanPath === 'api') {
+      cleanPath = cleanPath.slice(3).replace(/^\/+/, '');
     }
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${base}${path}`;
+    const queryString = rawQuery !== undefined ? `?${rawQuery}` : '';
+    return { path: cleanPath, queryString };
   }
 
-  // FastAPI
+  function normalizeBaseUrl(base) {
+    let b = base.replace(/\/+$/, '');
+    if (b.includes('/functions/v1')) {
+      b = b.replace(/(\/api)+$/, '');
+      return `${b}/api`;
+    }
+    if (b.includes('supabase.co')) {
+      b = b.replace(/(\/functions\/v1)?(\/api)*$/, '');
+      return `${b}/functions/v1/api`;
+    }
+    b = b.replace(/(\/api)+$/, '');
+    return `${b}/api`;
+  }
+
+  function buildApiUrl(endpoint, base = 'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api') {
+    const normBase = normalizeBaseUrl(base);
+    const { path, queryString } = cleanEndpoint(endpoint);
+    return path ? `${normBase}/${path}${queryString}` : `${normBase}${queryString}`;
+  }
+
+  const supabaseBase = 'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api';
+
+  // Specific assertions:
+  // /status must become https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status
+  // and must never become /api/api/status
   assert.equal(
-    buildApiUrl('http://127.0.0.1:8000', '/api/alerts'),
-    'http://127.0.0.1:8000/api/alerts'
+    buildApiUrl('/status', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+  assert.equal(
+    buildApiUrl('status', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+  assert.equal(
+    buildApiUrl('/api/status', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+  assert.equal(
+    buildApiUrl('api/status', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+  assert.equal(
+    buildApiUrl('/api/api/status', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+  assert.ok(
+    !buildApiUrl('/status', supabaseBase).includes('/api/api'),
+    'URL must not contain /api/api duplication'
   );
 
-  // Supabase unified router
+  // All required endpoints:
   assert.equal(
-    buildApiUrl('https://example.supabase.co/functions/v1/api', '/api/alerts'),
-    'https://example.supabase.co/functions/v1/api/alerts'
+    buildApiUrl('/health', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/health'
   );
   assert.equal(
-    buildApiUrl('https://example.supabase.co/functions/v1/api', '/api/demo/scenario'),
-    'https://example.supabase.co/functions/v1/api/demo/scenario'
+    buildApiUrl('/areas', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/areas'
+  );
+  assert.equal(
+    buildApiUrl('/alerts', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/alerts'
+  );
+  assert.equal(
+    buildApiUrl('/alerts?area_id=area-1&status=all', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/alerts?area_id=area-1&status=all'
+  );
+  assert.equal(
+    buildApiUrl('/safe-zones', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/safe-zones'
+  );
+  assert.equal(
+    buildApiUrl('/emergency-contacts', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/emergency-contacts'
+  );
+  assert.equal(
+    buildApiUrl('/translations/alert-123?language=ta', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/translations/alert-123?language=ta'
+  );
+  assert.equal(
+    buildApiUrl('/auth/login', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/auth/login'
+  );
+  assert.equal(
+    buildApiUrl('/auth/me', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/auth/me'
+  );
+  assert.equal(
+    buildApiUrl('/admin/audit-logs', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/admin/audit-logs'
+  );
+  assert.equal(
+    buildApiUrl('/demo/scenario', supabaseBase),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/demo/scenario'
   );
 
-  // Supabase individual functions
+  // Trailing slash in base URL does not create double slashes or duplicate /api
   assert.equal(
-    buildApiUrl('https://example.supabase.co/functions/v1', '/api/alerts'),
-    'https://example.supabase.co/functions/v1/alerts'
+    buildApiUrl('/status', 'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/'),
+    'https://ijbsprdkrhnimhiknpxe.supabase.co/functions/v1/api/status'
+  );
+
+  // FastAPI development assertions:
+  assert.equal(
+    buildApiUrl('/status', 'http://127.0.0.1:8000'),
+    'http://127.0.0.1:8000/api/status'
   );
   assert.equal(
-    buildApiUrl('https://example.supabase.co/functions/v1', '/api/demo/scenario'),
-    'https://example.supabase.co/functions/v1/demo-scenario'
+    buildApiUrl('/api/status', 'http://127.0.0.1:8000'),
+    'http://127.0.0.1:8000/api/status'
+  );
+  assert.equal(
+    buildApiUrl('/status', 'http://127.0.0.1:8000/api'),
+    'http://127.0.0.1:8000/api/status'
+  );
+  assert.equal(
+    buildApiUrl('/api/status', 'http://127.0.0.1:8000/api'),
+    'http://127.0.0.1:8000/api/status'
+  );
+  assert.ok(
+    !buildApiUrl('/api/status', 'http://127.0.0.1:8000/api').includes('/api/api'),
+    'FastAPI URL must not contain /api/api duplication'
   );
 });
 

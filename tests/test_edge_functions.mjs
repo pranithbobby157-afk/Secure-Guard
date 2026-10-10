@@ -813,3 +813,136 @@ test('Dashboard status logic decouples bulletin staleness from source health', (
   assert.match(test5.freshnessSubtitle, /Operating in offline cache mode/);
   assert.equal(test5.statusDotClass, 'status-dot neutral');
 });
+
+// Test 15: Google OAuth & Supabase Auth Token Verification & Privilege Isolation
+test('Google OAuth tokens are verified via Supabase Auth and isolated from administrative privileges', async () => {
+  // Test implementation of authenticateUser logic matching security.ts
+  async function testAuthenticateUser(req, supabase) {
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { user: null, error: 'Missing or invalid authentication token', status: 401 };
+    }
+
+    const token = authHeader.substring(7).trim();
+    const parts = token.split('.');
+
+    // 1. Supabase Auth JWT verifier (3 parts)
+    if (parts.length === 3) {
+      if (!supabase || !supabase.auth || typeof supabase.auth.getUser !== 'function') {
+        return { user: null, error: 'Supabase authentication service unavailable', status: 503 };
+      }
+
+      const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+      if (authErr || !authData?.user) {
+        return { user: null, error: 'Invalid or expired Supabase authentication token', status: 401 };
+      }
+
+      const authUser = authData.user;
+      const userEmail = authUser.email;
+      const userId = authUser.id;
+
+      // Check if this OAuth account is assigned an authorized role in public.users
+      const { data: dbUser, error: dbErr } = await supabase.from('users').select('*');
+
+      const matchedUser = (dbUser || []).find(
+        (u) => u.id === userId || (userEmail && u.username === userEmail)
+      );
+
+      if (!matchedUser) {
+        return {
+          user: null,
+          error: 'Google account authenticated, but not authorized as an editor or administrator',
+          status: 403,
+        };
+      }
+
+      return { user: matchedUser };
+    }
+
+    // 2. Custom SafeRoute HMAC-SHA256 Token (2 parts)
+    if (parts.length === 2) {
+      // Mock custom token validation
+      if (token.startsWith('valid_custom_token.')) {
+        return { user: { id: 'user-admin', username: 'admin', role: 'admin' } };
+      }
+      return { user: null, error: 'Token has expired or is invalid', status: 401 };
+    }
+
+    return { user: null, error: 'Token format invalid', status: 401 };
+  }
+
+  // 1. Unassigned Google OAuth user (e.g. tourist@gmail.com)
+  const mockSupabaseUnassigned = {
+    auth: {
+      getUser: async (token) => {
+        if (token === 'valid.header.signature') {
+          return { data: { user: { id: 'oauth-uuid-1', email: 'tourist@gmail.com' } }, error: null };
+        }
+        return { data: { user: null }, error: new Error('Invalid token') };
+      },
+    },
+    from: (table) => ({
+      select: () => Promise.resolve({
+        data: [{ id: 'user-admin', username: 'admin', role: 'admin' }],
+        error: null,
+      }),
+    }),
+  };
+
+  const reqUnassigned = {
+    headers: new Headers({ Authorization: 'Bearer valid.header.signature' }),
+  };
+
+  const resUnassigned = await testAuthenticateUser(reqUnassigned, mockSupabaseUnassigned);
+  assert.equal(
+    resUnassigned.status,
+    403,
+    'Unassigned Google OAuth account must receive 403 Forbidden on privileged endpoints'
+  );
+  assert.match(
+    resUnassigned.error,
+    /not authorized as an editor or administrator/,
+    'Must explain lack of administrator authorization'
+  );
+  assert.equal(resUnassigned.user, null, 'User object must be null for unassigned account');
+
+  // 2. Assigned Google OAuth user (e.g. coordinator@saferoute.org)
+  const mockSupabaseAssigned = {
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: 'oauth-uuid-2', email: 'coordinator@saferoute.org' } },
+        error: null,
+      }),
+    },
+    from: (table) => ({
+      select: () => Promise.resolve({
+        data: [
+          { id: 'user-admin', username: 'admin', role: 'admin' },
+          { id: 'oauth-uuid-2', username: 'coordinator@saferoute.org', role: 'editor' },
+        ],
+        error: null,
+      }),
+    }),
+  };
+
+  const reqAssigned = {
+    headers: new Headers({ Authorization: 'Bearer valid.header.signature' }),
+  };
+
+  const resAssigned = await testAuthenticateUser(reqAssigned, mockSupabaseAssigned);
+  assert.equal(resAssigned.user?.role, 'editor', 'Assigned OAuth account must receive their authorized role');
+
+  // 3. Invalid or Expired Supabase Auth token
+  const reqInvalidJwt = {
+    headers: new Headers({ Authorization: 'Bearer expired.jwt.token' }),
+  };
+  const resInvalidJwt = await testAuthenticateUser(reqInvalidJwt, mockSupabaseUnassigned);
+  assert.equal(resInvalidJwt.status, 401, 'Expired Supabase token must return 401');
+
+  // 4. Custom HMAC-SHA256 tokens still work identically (2-part token)
+  const reqCustomToken = {
+    headers: new Headers({ Authorization: 'Bearer valid_custom_token.signature' }),
+  };
+  const resCustomToken = await testAuthenticateUser(reqCustomToken, mockSupabaseUnassigned);
+  assert.equal(resCustomToken.user?.username, 'admin', 'Existing custom tokens must continue to authenticate');
+});

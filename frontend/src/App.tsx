@@ -13,7 +13,26 @@ import { Icon } from './components/Icon';
 
 export const App: React.FC = () => {
   // Navigation & Language
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPage] = useState<Page>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      if (
+        hash.includes('access_token') ||
+        hash.includes('error') ||
+        search.includes('code=') ||
+        search.includes('error=')
+      ) {
+        return 'editor';
+      }
+      const returnPage = sessionStorage.getItem('saferoute_auth_redirect_page') as Page | null;
+      if (returnPage && ['dashboard', 'conditions', 'contacts', 'editor'].includes(returnPage)) {
+        sessionStorage.removeItem('saferoute_auth_redirect_page');
+        return returnPage;
+      }
+    }
+    return 'dashboard';
+  });
   const [language, setLanguage] = useState<Language>('en');
   const [mobileNav, setMobileNav] = useState(false);
   const t: Copy = messages[language];

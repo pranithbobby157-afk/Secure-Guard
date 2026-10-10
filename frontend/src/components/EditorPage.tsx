@@ -5,6 +5,29 @@ import { Copy } from '../i18n/messages';
 import { Icon } from './Icon';
 import { Page } from './Header';
 import { CreateAlertModal } from './CreateAlertModal';
+import { supabase, signInWithGoogle, signOutGoogle, getGoogleSession } from '../services/supabase';
+import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
+
+const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      fill="#4285F4"
+      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.04h3.88c2.27-2.09 3.66-5.17 3.66-9.14z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.04c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.94H1.24v3.13C3.26 21.36 7.33 24 12 24z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.6H1.24C.45 8.18 0 9.95 0 12s.45 3.82 1.24 5.4l4.04-3.13z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.6l4.04 3.13c.95-2.84 3.6-4.98 6.72-4.98z"
+    />
+  </svg>
+);
 
 interface EditorPageProps {
   t: Copy;
@@ -30,6 +53,12 @@ export const EditorPage: React.FC<EditorPageProps> = ({
     return localStorage.getItem('saferoute_auth_user') || null;
   });
 
+  // Google OAuth states
+  const [_googleSession, setGoogleSession] = useState<SupabaseSession | null>(null);
+  const [googleUser, setGoogleUser] = useState<SupabaseUser | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
   const [preview, setPreview] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +71,55 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Fetch audit logs when user is authenticated
+  // Initialize and listen to Supabase Google Auth sessions
+  useEffect(() => {
+    // 1. Detect OAuth redirect error params in URL hash or search
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+
+      const errorDesc =
+        hashParams.get('error_description') ||
+        params.get('error_description') ||
+        hashParams.get('error') ||
+        params.get('error');
+
+      if (errorDesc) {
+        setGoogleError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
+    // 2. Restore existing Google session from storage
+    getGoogleSession().then((session) => {
+      if (session) {
+        setGoogleSession(session);
+        setGoogleUser(session.user);
+      }
+    });
+
+    // 3. Subscribe to auth state updates
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        if (session) {
+          setGoogleSession(session);
+          setGoogleUser(session.user);
+          setIsGoogleLoading(false);
+          setGoogleError(null);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setGoogleSession(null);
+        setGoogleUser(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Fetch audit logs when user is authenticated with admin token
   useEffect(() => {
     if (authToken && activeTab === 'audit') {
       api.adminGetAuditLogs(authToken)
@@ -70,12 +147,43 @@ export const EditorPage: React.FC<EditorPageProps> = ({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setAuthToken(null);
     setCurrentUser(null);
     setPreview(false);
     localStorage.removeItem('saferoute_auth_token');
     localStorage.removeItem('saferoute_auth_user');
+    if (googleUser) {
+      await handleGoogleSignOut();
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setGoogleError(null);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('saferoute_auth_redirect_page', 'editor');
+      }
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setGoogleError(error.message);
+        setIsGoogleLoading(false);
+      }
+    } catch (err: any) {
+      setGoogleError(err.message || 'Google OAuth initiation failed');
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    try {
+      await signOutGoogle();
+      setGoogleSession(null);
+      setGoogleUser(null);
+    } catch (err: any) {
+      alert(`Could not sign out of Google: ${err.message}`);
+    }
   };
 
   const handleToggleSource = async (sourceId: string, currentHealth: string) => {
@@ -139,8 +247,6 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                 {t.audit} (Tamper-evident logs)
               </span>
             </div>
-
-
           </section>
 
           <form className="sign-in-card" onSubmit={handleLogin}>
@@ -149,6 +255,54 @@ export const EditorPage: React.FC<EditorPageProps> = ({
             </div>
             <h2>{t.signIn}</h2>
             <p>{t.signInIntro}</p>
+
+            {/* Google OAuth Section */}
+            {googleUser ? (
+              <div className="google-status-card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong>Signed in as {googleUser.email}</strong>
+                    <p className="mt-0.5 text-[11px] text-[#475467]">
+                      Google Verified · Visitor / Crisis Viewer
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignOut}
+                    className="rounded-lg border border-teal-300 bg-white px-2.5 py-1 text-xs font-bold text-[#005E59] hover:bg-teal-50"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] border-t border-teal-200/60 pt-2 text-[#475467]">
+                  Note: Administrative operations (creating alerts, toggling feeds) require an authorized administrator or editor account.
+                </p>
+              </div>
+            ) : (
+              <div className="google-auth-container">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isGoogleLoading}
+                  className="google-btn"
+                >
+                  <GoogleIcon size={18} />
+                  <span>
+                    {isGoogleLoading ? 'Connecting to Google…' : 'Sign In with Google'}
+                  </span>
+                </button>
+
+                {googleError && (
+                  <p className="form-error" role="alert">
+                    {googleError}
+                  </p>
+                )}
+
+                <div className="auth-divider">
+                  <span>or continue with password</span>
+                </div>
+              </div>
+            )}
 
             <label>
               <span>{t.email} / Username</span>
@@ -257,7 +411,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
 
         <div className="mt-8 pt-4 border-t border-white/10 lg:absolute lg:bottom-6 lg:left-5 lg:right-5">
           <div className="text-xs text-slate-400 mb-2">
-            Active: <b>{currentUser || 'Demo Editor (Preview)'}</b>
+            Active: <b>{currentUser || (googleUser?.email ? `${googleUser.email} (Google)` : 'Demo Editor (Preview)')}</b>
           </div>
           <button
             type="button"

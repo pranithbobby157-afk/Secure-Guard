@@ -152,6 +152,52 @@ export async function authenticateUser(
   }
 
   const token = authHeader.substring(7).trim();
+  const parts = token.split('.');
+
+  // 1. Supabase Auth JWT verification (3 parts: header.payload.signature)
+  if (parts.length === 3) {
+    if (!supabase || !supabase.auth || typeof supabase.auth.getUser !== 'function') {
+      return {
+        user: null,
+        error: 'Supabase authentication service unavailable',
+        status: 503,
+      };
+    }
+
+    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return {
+        user: null,
+        error: 'Invalid or expired Supabase authentication token',
+        status: 401,
+      };
+    }
+
+    const authUser = authData.user;
+    const userEmail = authUser.email;
+    const userId = authUser.id;
+
+    // Strict role check: OAuth users must be explicitly registered in public.users to access privileged operations
+    let query = supabase.from('users').select('*');
+    if (userEmail) {
+      query = query.or(`id.eq.${userId},username.eq.${userEmail}`);
+    } else {
+      query = query.eq('id', userId);
+    }
+    const { data: user, error: dbErr } = await query.maybeSingle();
+
+    if (dbErr || !user) {
+      return {
+        user: null,
+        error: 'Google account authenticated, but not authorized as an editor or administrator',
+        status: 403,
+      };
+    }
+
+    return { user: user as User };
+  }
+
+  // 2. Custom SafeRoute HMAC-SHA256 token verification (2 parts: payload.signature)
   const payload = await decodeAccessToken(token);
   if (!payload || !payload.sub) {
     return {

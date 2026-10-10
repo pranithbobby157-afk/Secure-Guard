@@ -161,6 +161,11 @@
   .sign-in-card input { @apply min-h-11 w-full border-0 bg-transparent; }
   .form-error { @apply mt-4 rounded-lg bg-red-50 p-3 text-xs font-semibold text-[#B42318]; }
   .sign-in-card .full { @apply mt-5; } .preview-button { @apply mt-3 flex min-h-11 w-full items-center justify-center gap-2 text-xs font-bold text-[#007F78]; }
+  .google-btn { @apply mt-5 flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#D0D5DD] bg-white px-4 text-xs font-bold text-[#344054] hover:bg-[#F8FAFC] hover:border-[#98A2B3] transition-colors disabled:opacity-50; }
+  .auth-divider { @apply relative my-5 flex items-center justify-center; }
+  .auth-divider:before { content: ""; @apply absolute inset-x-0 h-px bg-[#E2E8F0]; }
+  .auth-divider span { @apply relative bg-white px-3 text-[11px] font-semibold uppercase tracking-wider text-[#98A2B3]; }
+  .google-status-card { @apply mb-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 text-xs text-[#005E59]; }
   .ops-shell { @apply min-h-screen bg-[#F6F8FA] lg:grid lg:grid-cols-[240px_1fr]; }
   .ops-sidebar { @apply bg-[#101828] p-5 text-white; } .ops-sidebar nav { @apply mt-10 flex gap-2 overflow-x-auto lg:flex-col; }
   .ops-sidebar nav button { @apply flex min-h-11 shrink-0 items-center gap-3 rounded-lg px-3 text-xs font-bold text-slate-300; } .ops-sidebar nav button.active { @apply bg-white/10 text-white; }

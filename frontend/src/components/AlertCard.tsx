@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert } from '../types';
 import { Copy, Language } from '../i18n/messages';
 import { Icon } from './Icon';
+import { savedStore } from '../services/savedStore';
 
 interface AlertCardProps {
   alert: Alert;
@@ -17,6 +18,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   areaName
 }) => {
   const [open, setOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(() => savedStore.isSaved(`alert-${alert.id}`));
 
   // Find translation matching user's selected language
   const translation = alert.translations?.find(
@@ -189,6 +191,26 @@ export const AlertCard: React.FC<AlertCardProps> = ({
               Official Bulletin <Icon name="external" size={13} />
             </a>
           )}
+          <button
+            type="button"
+            className="ms-auto flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475467] hover:bg-[#EAECF0]"
+            onClick={() => {
+              savedStore.toggle({
+                id: `alert-${alert.id}`,
+                type: 'alert',
+                title: translation?.translated_title || alert.title,
+                subtitle: `${alert.hazard_type.toUpperCase()} · ${alert.severity.toUpperCase()}`,
+                badge: alert.severity.toUpperCase(),
+                details: alert.description_original,
+                data: alert
+              });
+              setIsSaved(!isSaved);
+            }}
+            title={isSaved ? 'Remove from Saved' : 'Save to Bookmarks'}
+          >
+            <Icon name={isSaved ? 'check' : 'bookmark'} size={14} />
+            <span>{isSaved ? 'Saved' : 'Save Alert'}</span>
+          </button>
         </div>
       </div>
     </article>

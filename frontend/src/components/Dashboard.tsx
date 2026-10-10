@@ -142,13 +142,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <p>{t.intro}</p>
         </div>
 
-        <div className="freshness">
+        <button
+          type="button"
+          onClick={() => navigate('sources')}
+          className="freshness text-start hover:border-[#007F78] transition-colors cursor-pointer"
+          title="Click to view detailed feed health and source provenance"
+        >
           <span className={statusDotClass} />
           <span>
             <strong>{freshnessTitle}</strong>
             <small>{freshnessSubtitle}</small>
           </span>
-        </div>
+        </button>
       </section>
 
       {/* Primary Emergency Status Hero */}
@@ -227,7 +232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button
               type="button"
               className="primary-button"
-              onClick={() => navigate('conditions')}
+              onClick={() => navigate('map')}
             >
               {t.openMap}
               <Icon name="arrow" size={17} />
@@ -254,6 +259,105 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <ActionPlan t={t} compact />
+      </section>
+
+      {/* 03 / Emergency Travel Toolkit */}
+      <section className="section-block" aria-labelledby="toolkit-heading">
+        <div className="section-heading">
+          <div>
+            <span className="kicker">03 / EMERGENCY TOOLKIT</span>
+            <h2 id="toolkit-heading">Crisis Travel & Communication Tools</h2>
+          </div>
+          <span className="text-xs font-semibold text-[#667085]">
+            4 Tools Available
+          </span>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Route Check */}
+          <button
+            type="button"
+            onClick={() => navigate('routes')}
+            className="flex flex-col justify-between rounded-2xl border border-[#E2E8F0] bg-white p-5 text-start shadow-sm transition-all hover:border-[#007F78] hover:shadow-md"
+          >
+            <div>
+              <span className="grid size-10 place-items-center rounded-xl bg-teal-50 text-[#007F78] mb-3">
+                <Icon name="route" size={20} />
+              </span>
+              <h3 className="text-base font-extrabold text-[#101828]">Route Check</h3>
+              <p className="mt-1 text-xs text-[#667085] leading-5">
+                Assess travel corridors between Indian transit hubs against active cyclone and flood hazard polygons.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-xs font-bold text-[#007F78]">
+              <span>Check Corridor</span>
+              <Icon name="arrow" size={14} />
+            </div>
+          </button>
+
+          {/* Card 2: Message Verification */}
+          <button
+            type="button"
+            onClick={() => navigate('verify')}
+            className="flex flex-col justify-between rounded-2xl border border-[#E2E8F0] bg-white p-5 text-start shadow-sm transition-all hover:border-[#007F78] hover:shadow-md"
+          >
+            <div>
+              <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#175CD3] mb-3">
+                <Icon name="shield" size={20} />
+              </span>
+              <h3 className="text-base font-extrabold text-[#101828]">Verify News & Rumors</h3>
+              <p className="mt-1 text-xs text-[#667085] leading-5">
+                Paste viral WhatsApp messages or news snippets to cross-reference against verified bulletins.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-xs font-bold text-[#175CD3]">
+              <span>Verify Message</span>
+              <Icon name="arrow" size={14} />
+            </div>
+          </button>
+
+          {/* Card 3: Phrasebook */}
+          <button
+            type="button"
+            onClick={() => navigate('phrasebook')}
+            className="flex flex-col justify-between rounded-2xl border border-[#E2E8F0] bg-white p-5 text-start shadow-sm transition-all hover:border-[#007F78] hover:shadow-md"
+          >
+            <div>
+              <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-[#DC6803] mb-3">
+                <Icon name="volume" size={20} />
+              </span>
+              <h3 className="text-base font-extrabold text-[#101828]">Crisis Phrasebook</h3>
+              <p className="mt-1 text-xs text-[#667085] leading-5">
+                Vital emergency phrases in Tamil, Hindi, French, and English with audio speech and phonetic guides.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-xs font-bold text-[#DC6803]">
+              <span>Browse Phrases</span>
+              <Icon name="arrow" size={14} />
+            </div>
+          </button>
+
+          {/* Card 4: Quick Mode */}
+          <button
+            type="button"
+            onClick={() => navigate('quick')}
+            className="flex flex-col justify-between rounded-2xl border border-red-200 bg-red-50/40 p-5 text-start shadow-sm transition-all hover:border-red-400 hover:shadow-md"
+          >
+            <div>
+              <span className="grid size-10 place-items-center rounded-xl bg-red-100 text-[#D92D20] mb-3">
+                <Icon name="zap" size={20} />
+              </span>
+              <h3 className="text-base font-extrabold text-[#101828]">Quick Emergency Mode</h3>
+              <p className="mt-1 text-xs text-[#667085] leading-5">
+                High-contrast, 1-tap dialer for 112, 108, and 1913 plus critical audio phrases for immediate crisis situations.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-xs font-bold text-[#D92D20]">
+              <span>Open Quick Mode</span>
+              <Icon name="arrow" size={14} />
+            </div>
+          </button>
+        </div>
       </section>
 
       {/* Source Provenance Panel */}

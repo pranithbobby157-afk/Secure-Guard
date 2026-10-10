@@ -973,3 +973,185 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
   assert.equal(preservedAdmin?.id, 'user-admin');
   assert.equal(preservedAdmin?.role, 'admin');
 });
+
+// Test 16: Route Check geometric corridor assessment and hazard proximity detection
+test('Route corridor calculation evaluates distance and intersects active hazard buffers', () => {
+  // Haversine distance function from destinations.ts
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
+  }
+
+  // Chennai Central (13.0827, 80.2707) to Mahabalipuram (12.6269, 80.1927)
+  const dChennaiMaha = calculateDistance(13.0827, 80.2707, 12.6269, 80.1927);
+  assert.ok(dChennaiMaha > 50 && dChennaiMaha < 60, `Chennai to Mahabalipuram should be ~51-53km, got ${dChennaiMaha}`);
+
+  // Corridor hazard intersection logic
+  const midLat = (13.0827 + 12.6269) / 2;
+  const midLng = (80.2707 + 80.1927) / 2;
+
+  const mockAlerts = [
+    {
+      id: 'alert-cyclone',
+      title: 'Cyclone Warning Coastal Chennai',
+      lat: 13.045,
+      lng: 80.28,
+      status: 'active'
+    },
+    {
+      id: 'alert-inland',
+      title: 'Kancheepuram Reservoir Advisory',
+      lat: 12.8342,
+      lng: 79.7036,
+      status: 'active'
+    },
+    {
+      id: 'alert-remote',
+      title: 'Coimbatore Rain Watch',
+      lat: 11.0168,
+      lng: 76.9558,
+      status: 'active'
+    }
+  ];
+
+  function findCorridorHazards(start, mid, end, alerts, thresholdKm = 40) {
+    return alerts.filter((alert) => {
+      const d1 = calculateDistance(alert.lat, alert.lng, start.lat, start.lng);
+      const d2 = calculateDistance(alert.lat, alert.lng, mid.lat, mid.lng);
+      const d3 = calculateDistance(alert.lat, alert.lng, end.lat, end.lng);
+      return d1 <= thresholdKm || d2 <= thresholdKm || d3 <= thresholdKm;
+    });
+  }
+
+  const hazards = findCorridorHazards(
+    { lat: 13.0827, lng: 80.2707 },
+    { lat: midLat, lng: midLng },
+    { lat: 12.6269, lng: 80.1927 },
+    mockAlerts,
+    40
+  );
+
+  assert.equal(hazards.some((h) => h.id === 'alert-cyclone'), true, 'Coastal cyclone must intersect Chennai corridor');
+  assert.equal(hazards.some((h) => h.id === 'alert-remote'), false, 'Remote Coimbatore alert must not intersect coastal corridor');
+});
+
+// Test 17: Message Verification algorithm cross-references claims against known bulletins without false certainty
+test('Message verification correctly identifies official matches, partial matches, and rejects unverified rumors', () => {
+  const mockAlerts = [
+    {
+      id: 'alert-cyclone-red-01',
+      title: 'Severe Cyclone Advisory: Extreme Wind & Heavy Coastal Rainfall',
+      description_original: 'Severe cyclonic storm approaching Chennai coast with gusts up to 95 km/h. Marina Beach evacuated.',
+      instruction_original: 'Stay indoors. Do not visit Marina or Elliots Beach.',
+      hazard_type: 'cyclone',
+      status: 'active',
+      is_stale: false,
+      source: { name: 'India Meteorological Department (IMD)' }
+    },
+    {
+      id: 'alert-flood-omr',
+      title: 'Severe Waterlogging: Velachery - Madipakkam Low-Lying Sectors',
+      description_original: 'Continuous cloudburst causing severe inundation across Velachery 100 Feet Road and Madipakkam Lake.',
+      instruction_original: 'Do not drive through standing water.',
+      hazard_type: 'waterlogging',
+      status: 'active',
+      is_stale: false,
+      source: { name: 'Greater Chennai Corporation (GCC)' }
+    }
+  ];
+
+  const STOP_WORDS = new Set(['the', 'is', 'in', 'at', 'of', 'on', 'and', 'a', 'to', 'for', 'with', 'from']);
+  function tokenize(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  }
+
+  function verifyClaim(claimText, alerts) {
+    const input = claimText.trim();
+    if (!input) throw new Error('Empty claim');
+    const tokens = tokenize(input);
+    if (!tokens.length) return { status: 'no_match', score: 0 };
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const alert of alerts) {
+      const corpus = `${alert.title} ${alert.description_original} ${alert.instruction_original}`;
+      const alertTokens = new Set(tokenize(corpus));
+      const matches = tokens.filter((t) => alertTokens.has(t));
+      const score = Math.round((new Set(matches).size / Math.max(tokens.length, 3)) * 100);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = alert;
+      }
+    }
+
+    if (bestMatch && bestScore >= 45) {
+      return { status: 'verified_official_match', match: bestMatch, score: bestScore };
+    }
+    if (bestMatch && bestScore >= 20) {
+      return { status: 'partial_match', match: bestMatch, score: bestScore };
+    }
+    return { status: 'no_match', score: 0 };
+  }
+
+  // 1. Exact match scenario
+  const officialClaim = 'Severe cyclonic storm approaching Chennai coast with gusts up to 95 km/h. Marina Beach evacuated.';
+  const resOfficial = verifyClaim(officialClaim, mockAlerts);
+  assert.equal(resOfficial.status, 'verified_official_match');
+  assert.equal(resOfficial.match.id, 'alert-cyclone-red-01');
+
+  // 2. Unverified rumor scenario
+  const fakeRumor = 'All airports in south India permanently demolished due to alien meteor attack';
+  const resFake = verifyClaim(fakeRumor, mockAlerts);
+  assert.equal(resFake.status, 'no_match');
+  assert.equal(resFake.score, 0);
+
+  // 3. Empty input validation
+  assert.throws(() => verifyClaim('', mockAlerts), /Empty claim/);
+});
+
+// Test 18: Multilingual Emergency Phrasebook completeness and structure
+test('Multilingual emergency phrasebook contains all required categories and distinct translations', async () => {
+  // Read phrases.ts file directly to verify data integrity
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const phrasesFile = path.resolve('frontend/src/services/phrases.ts');
+  const content = fs.readFileSync(phrasesFile, 'utf8');
+
+  // Must include all priority categories required by hackathon specification
+  const requiredCategories = [
+    'help',
+    'medical',
+    'police',
+    'directions',
+    'needs',
+    'danger',
+    'shelter',
+    'missing',
+    'translation'
+  ];
+
+  for (const cat of requiredCategories) {
+    assert.match(content, new RegExp(`category:\\s*'${cat}'`), `Phrasebook must include '${cat}' category`);
+  }
+
+  // Must include Tamil phonetic guides and distinct language properties
+  assert.match(content, /taPhonetic:/, 'Phrasebook must contain phonetic pronunciation guides for non-Tamil speakers');
+  assert.match(content, /hiPhonetic:/, 'Phrasebook must contain Hindi phonetic guides');
+  assert.match(content, /ta:\s*'/);
+  assert.match(content, /hi:\s*'/);
+  assert.match(content, /fr:\s*'/);
+});

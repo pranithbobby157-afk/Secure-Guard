@@ -1,15 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from './services/api';
 import { Alert, Area, EmergencyContact, SafeZone, SystemStatus } from './types';
 import { Copy, Language, messages } from './i18n/messages';
 import { Header, Page } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { ConditionsPage } from './components/ConditionsPage';
+import { RouteCheckPage } from './components/RouteCheckPage';
+import { VerifyPage } from './components/VerifyPage';
+import { PhrasebookPage } from './components/PhrasebookPage';
+import { SavedPage } from './components/SavedPage';
+import { QuickModePage } from './components/QuickModePage';
+import { DataSourcesPage } from './components/DataSourcesPage';
 import { ContactsPage } from './components/ContactsPage';
 import { EditorPage } from './components/EditorPage';
 import { Footer } from './components/Footer';
 import { Scenario } from './components/StatusHero';
 import { Icon } from './components/Icon';
+
+const VALID_PAGES: Page[] = [
+  'dashboard',
+  'map',
+  'conditions',
+  'routes',
+  'verify',
+  'phrasebook',
+  'saved',
+  'quick',
+  'sources',
+  'contacts',
+  'editor'
+];
 
 export const App: React.FC = () => {
   // Navigation & Language
@@ -26,7 +46,7 @@ export const App: React.FC = () => {
         return 'editor';
       }
       const returnPage = sessionStorage.getItem('saferoute_auth_redirect_page') as Page | null;
-      if (returnPage && ['dashboard', 'conditions', 'contacts', 'editor'].includes(returnPage)) {
+      if (returnPage && VALID_PAGES.includes(returnPage)) {
         sessionStorage.removeItem('saferoute_auth_redirect_page');
         return returnPage;
       }
@@ -62,12 +82,16 @@ export const App: React.FC = () => {
   };
 
   // 1. Fetch available geographic areas on start
+  const initializedAreasRef = useRef(false);
   useEffect(() => {
+    if (initializedAreasRef.current) return;
+    initializedAreasRef.current = true;
+
     api.getAreas()
       .then((data) => {
         setAreas(data);
-        if (data.length > 0 && !selectedAreaId) {
-          setSelectedAreaId(data[0].id);
+        if (data.length > 0) {
+          setSelectedAreaId((prev) => prev || data[0].id);
         }
       })
       .catch((err) => console.warn('Could not load areas from backend', err));
@@ -117,9 +141,18 @@ export const App: React.FC = () => {
 
   // Initial fetch and auto-refresh every 45s
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 45000);
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const executeFetch = async () => {
+      if (isMounted) {
+        await loadData();
+      }
+    };
+    executeFetch();
+    const interval = setInterval(executeFetch, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [loadData]);
 
   // Handle Scenario Switching
@@ -168,7 +201,7 @@ export const App: React.FC = () => {
       (error) => {
         console.warn('Geolocation denied or unavailable', error);
         // Default to Marina Beach coordinates for demo testing if permission not granted
-        setUserLocation({ lat: 13.0500, lng: 80.2824 });
+        setUserLocation({ lat: 13.05, lng: 80.2824 });
         setIsLocating(false);
       },
       { timeout: 6000, enableHighAccuracy: true }
@@ -177,6 +210,9 @@ export const App: React.FC = () => {
 
   const currentArea = areas.find((a) => a.id === selectedAreaId);
   const activeAlerts = alerts.filter((a) => a.status === 'active');
+  const currentAreaName = currentArea
+    ? `${currentArea.name}, ${currentArea.state_region}`
+    : undefined;
 
   return (
     <div className="min-h-screen bg-[#F6F8FA] text-[#101828]">
@@ -219,7 +255,7 @@ export const App: React.FC = () => {
           />
         )}
 
-        {page === 'conditions' && (
+        {(page === 'map' || page === 'conditions') && (
           <ConditionsPage
             t={t}
             area={currentArea}
@@ -230,11 +266,49 @@ export const App: React.FC = () => {
           />
         )}
 
+        {page === 'routes' && (
+          <RouteCheckPage
+            t={t}
+            alerts={alerts}
+            currentArea={currentArea}
+            userLocation={userLocation}
+          />
+        )}
+
+        {page === 'verify' && (
+          <VerifyPage t={t} alerts={alerts} />
+        )}
+
+        {page === 'phrasebook' && (
+          <PhrasebookPage t={t} currentLanguage={language} />
+        )}
+
+        {page === 'saved' && (
+          <SavedPage t={t} navigate={navigate} />
+        )}
+
+        {page === 'quick' && (
+          <QuickModePage
+            t={t}
+            navigate={navigate}
+            areaName={currentAreaName}
+          />
+        )}
+
+        {page === 'sources' && (
+          <DataSourcesPage
+            t={t}
+            status={status}
+            onRefresh={loadData}
+            lastSyncTime={lastSyncTime}
+          />
+        )}
+
         {page === 'contacts' && (
           <ContactsPage
             t={t}
             contacts={contacts}
-            areaName={currentArea ? `${currentArea.name}, ${currentArea.state_region}` : undefined}
+            areaName={currentAreaName}
           />
         )}
 
@@ -254,15 +328,16 @@ export const App: React.FC = () => {
       <Footer t={t} />
 
       {/* Floating Emergency Action Button (FAB) */}
-      {page !== 'contacts' && page !== 'editor' && (
+      {page !== 'contacts' && page !== 'editor' && page !== 'quick' && (
         <button
           type="button"
           className="emergency-fab"
-          onClick={() => navigate('contacts')}
-          aria-label={t.contacts}
+          onClick={() => navigate('quick')}
+          aria-label="Quick Emergency Mode"
+          title="Open Quick Emergency Mode"
         >
-          <Icon name="phone" size={19} />
-          <span>{t.contacts}</span>
+          <Icon name="zap" size={19} />
+          <span>Quick Mode</span>
         </button>
       )}
     </div>

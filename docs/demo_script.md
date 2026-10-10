@@ -55,7 +55,7 @@
 ### [2:30 – 3:00] Editor Portal & Audit Logging
 - **Visual:**
   - Click **'Editor'** in the top-right corner.
-  - Sign in with `admin` / `admin123`.
+  - Sign in with authorized administrator credentials.
   - Show the **Source Feeds** health monitor and the **Audit Trail** displaying timestamped server logs.
   - Click **'Helplines (112)'** button in the header showing direct emergency contacts (112, 1070, 1913, 108).
 - **Narration:**

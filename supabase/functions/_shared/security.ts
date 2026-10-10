@@ -1,24 +1,22 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { User } from './types.ts';
 
-function getSecretKey(): string {
-  const envVal = (key: string): string | undefined => {
-    if (typeof Deno !== 'undefined' && Deno.env && typeof Deno.env.get === 'function') {
-      return Deno.env.get(key);
-    }
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env[key];
-    }
-    return undefined;
-  };
+export function getSecretKey(): string {
+  const secret =
+    (typeof Deno !== 'undefined'
+      ? Deno.env.get('SECRET_KEY')
+      : undefined) ||
+    (typeof process !== 'undefined'
+      ? process.env.SECRET_KEY
+      : undefined);
 
-  return (
-    envVal('SECRET_KEY') ||
-    envVal('JWT_SECRET') ||
-    envVal('SUPABASE_SERVICE_ROLE_KEY') ||
-    'saferoute-super-secure-crisis-comm-key-2026'
-  );
+  if (!secret || secret.length < 32) {
+    throw new Error('SECRET_KEY is missing or too short');
+  }
+
+  return secret;
 }
+
 
 export async function sha256Hex(text: string): Promise<string> {
   const enc = new TextEncoder();
@@ -106,12 +104,13 @@ export async function createAccessToken(
 export async function decodeAccessToken(
   token: string
 ): Promise<Record<string, unknown> | null> {
+  const secret = getSecretKey();
+
   try {
     const parts = token.split('.');
     if (parts.length !== 2) return null;
     const [b64Payload, sig] = parts;
 
-    const secret = getSecretKey();
     const expectedSig = await hmacSha256(secret, b64Payload);
     if (!constantTimeCompare(sig, expectedSig)) {
       return null;

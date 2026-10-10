@@ -17,8 +17,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onAlertCreated
 }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('saferoute_token'));
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<'create' | 'sources' | 'audit'>('create');
 
@@ -150,9 +150,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         {!token ? (
           /* Login Form */
           <form onSubmit={handleLogin} style={{ marginTop: '0.5rem' }}>
-            <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.84rem', color: '#93c5fd' }}>
-              <strong>Demo Credentials:</strong> Username: <code>admin</code> | Password: <code>admin123</code>
-            </div>
+
 
             {loginError && (
               <div style={{ color: '#f87171', fontSize: '0.82rem', marginBottom: '0.85rem' }}>

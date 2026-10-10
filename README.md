@@ -51,7 +51,7 @@ When localized extreme weather events occur — such as severe cyclones, intense
   1. *Cyclone Red Alert* (active crisis)
   2. *All Clear* (disclaimers & vigilance)
   3. *Source Outage* (stale data & degraded feed resilience)
-- **🔒 Authenticated Editor Portal:** Role-guarded administrative portal (`admin` / `admin123`) to curate simulated advisories, monitor feed health, and review immutable audit logs.
+- **🔒 Authenticated Editor Portal:** Role-guarded administrative portal to curate simulated advisories, monitor feed health, and review immutable audit logs.
 - **📞 Regional Emergency Helplines:** One-click directory of verified emergency numbers for the jurisdiction (**112**, **1070**, **1913**, **108**, **1077**).
 
 ---

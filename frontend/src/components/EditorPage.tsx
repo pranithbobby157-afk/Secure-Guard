@@ -31,8 +31,8 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   });
 
   const [preview, setPreview] = useState(false);
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,7 +64,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
       localStorage.setItem('saferoute_auth_user', res.username);
       setPreview(false);
     } catch (err: any) {
-      setAuthError(err.message || 'Invalid credentials. Use demo account admin / admin123.');
+      setAuthError(err.message || 'Invalid username or password.');
     } finally {
       setIsSubmitting(false);
     }
@@ -140,12 +140,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
               </span>
             </div>
 
-            <div className="mt-8 rounded-xl border border-teal-200 bg-teal-50/50 p-4 text-xs text-[#005E59]">
-              <strong>💡 Hackathon Presenter Credentials:</strong>
-              <div className="mt-1 font-mono">
-                Username: <b>admin</b> &nbsp;|&nbsp; Password: <b>admin123</b>
-              </div>
-            </div>
+
           </section>
 
           <form className="sign-in-card" onSubmit={handleLogin}>
@@ -165,7 +160,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
-                  placeholder="admin"
+                  placeholder="Username"
                 />
               </div>
             </label>

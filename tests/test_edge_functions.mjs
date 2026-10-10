@@ -875,10 +875,10 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
     return { user: null, error: 'Token format invalid', status: 401 };
   }
 
-  // Common public.users state representing database records
+  // Common public.users state representing database records with verified Auth UUID
   const dbUsers = [
     { id: 'user-admin', username: 'admin', role: 'admin' },
-    { id: 'user-rohith', username: 'rohithkarthik25@gmail.com', role: 'admin' },
+    { id: '7e1c1ef7-92b3-4d3f-8359-a59ff85ff962', username: 'rohithkarthik25@gmail.com', role: 'admin' },
     { id: 'oauth-uuid-editor', username: 'coordinator@saferoute.org', role: 'editor' },
   ];
 
@@ -907,15 +907,35 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
   assert.equal(resUnassigned.user, null, 'Unassigned user must have null user record');
   assert.match(resUnassigned.error, /not authorized as an editor or administrator/);
 
-  // 2. Correctly assigned administrator receives 'admin' role
-  const mockAdmin = createMockSupabase({ id: 'uuid-google-rohith', email: 'rohithkarthik25@gmail.com' });
+  // Simulated mutation enforcement check: viewer has no administrative mutation rights
+  function enforceMutationAccess(authRes) {
+    if (!authRes.user || (authRes.user.role !== 'admin' && authRes.user.role !== 'editor')) {
+      return { allowed: false, status: 403, error: 'Forbidden: administrative role required' };
+    }
+    return { allowed: true, status: 200 };
+  }
+  const viewerMutationCheck = enforceMutationAccess(resUnassigned);
+  assert.equal(viewerMutationCheck.allowed, false, 'Viewer cannot execute administrative mutations');
+  assert.equal(viewerMutationCheck.status, 403);
+
+  // 2. Correctly assigned administrator with exact Supabase Auth UUID receives 'admin' role
+  const mockAdmin = createMockSupabase({
+    id: '7e1c1ef7-92b3-4d3f-8359-a59ff85ff962',
+    email: 'rohithkarthik25@gmail.com',
+  });
   const reqAdmin = { headers: new Headers({ Authorization: 'Bearer valid.supabase.token' }) };
   const resAdmin = await testAuthenticateUser(reqAdmin, mockAdmin);
   assert.equal(resAdmin.user?.role, 'admin', 'Assigned admin must receive admin role');
+  assert.equal(resAdmin.user?.id, '7e1c1ef7-92b3-4d3f-8359-a59ff85ff962', 'Must resolve exact Supabase Auth UUID');
   assert.equal(resAdmin.user?.username, 'rohithkarthik25@gmail.com');
+  const adminMutationCheck = enforceMutationAccess(resAdmin);
+  assert.equal(adminMutationCheck.allowed, true, 'Administrator is permitted to execute mutations');
 
   // 3. Case-insensitive email normalization for administrator
-  const mockAdminMixedCase = createMockSupabase({ id: 'uuid-google-rohith', email: 'RohithKarthik25@GMAIL.COM' });
+  const mockAdminMixedCase = createMockSupabase({
+    id: '7e1c1ef7-92b3-4d3f-8359-a59ff85ff962',
+    email: 'RohithKarthik25@GMAIL.COM',
+  });
   const resAdminMixedCase = await testAuthenticateUser(reqAdmin, mockAdminMixedCase);
   assert.equal(resAdminMixedCase.user?.role, 'admin', 'Case-mixed email must match administrator role');
 
@@ -924,6 +944,8 @@ test('Google OAuth tokens are verified via Supabase Auth and isolated from admin
   const reqEditor = { headers: new Headers({ Authorization: 'Bearer valid.supabase.token' }) };
   const resEditor = await testAuthenticateUser(reqEditor, mockEditor);
   assert.equal(resEditor.user?.role, 'editor', 'Assigned editor must receive editor role');
+  const editorMutationCheck = enforceMutationAccess(resEditor);
+  assert.equal(editorMutationCheck.allowed, true, 'Editor is permitted to execute operational mutations');
 
   // 5. Client-supplied role claims cannot elevate privileges (unassigned user with client-claimed role remains 403)
   const mockForgedRoleUser = createMockSupabase({

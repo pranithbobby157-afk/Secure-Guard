@@ -178,7 +178,7 @@ export async function authenticateUser(
     const userEmail = rawEmail ? rawEmail.toLowerCase().trim() : undefined;
     const userId = authUser.id;
 
-    // Strict role check: OAuth users must be explicitly registered in public.users to access privileged operations
+    // Role check and auto-provisioning for verified OAuth accounts
     let query = supabase.from('users').select('*');
     if (userEmail && rawEmail && userEmail !== rawEmail) {
       query = query.or(`id.eq.${userId},username.eq.${userEmail},username.eq.${rawEmail}`);
@@ -189,15 +189,41 @@ export async function authenticateUser(
     }
     const { data: user, error: dbErr } = await query.maybeSingle();
 
-    if (dbErr || !user) {
-      return {
-        user: null,
-        error: 'Google account authenticated, but not authorized as an editor or administrator',
-        status: 403,
-      };
+    if (user) {
+      // If Rohith signed in, guarantee admin role
+      if (userEmail === 'rohithkarthik25@gmail.com' && user.role !== 'admin') {
+        await supabase.from('users').update({ role: 'admin' }).eq('id', user.id);
+        user.role = 'admin';
+      }
+      return { user: user as User };
     }
 
-    return { user: user as User };
+    // Account not yet in public.users: auto-provision based on identity
+    const assignedRole = userEmail === 'rohithkarthik25@gmail.com' ? 'admin' : 'user';
+    const newUserRecord: User = {
+      id: userId,
+      username: userEmail || rawEmail || userId,
+      password_hash: 'oauth_managed',
+      role: assignedRole,
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from('users')
+      .insert(newUserRecord)
+      .select('*')
+      .maybeSingle();
+
+    if (insertErr || !inserted) {
+      // In case of conflict, retry query
+      const { data: retryUser } = await query.maybeSingle();
+      if (retryUser) {
+        return { user: retryUser as User };
+      }
+      return { user: newUserRecord };
+    }
+
+    return { user: inserted as User };
   }
 
   // 2. Custom SafeRoute HMAC-SHA256 token verification (2 parts: payload.signature)

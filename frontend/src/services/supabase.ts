@@ -4,7 +4,11 @@ import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-
 export const SUPABASE_URL =
   import.meta.env.VITE_SUPABASE_URL || 'https://ijbsprdkrhnimhiknpxe.supabase.co';
 
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqYnNwcmRrcmhuaW1oaWtucHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1Njc3NjMsImV4cCI6MjEwNzE0Mzc2M30.gzCLd46GVMJ6YbDr2RhyKdtu0wCGuzXij20ZPVVUYcc';
+
+export const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 /**
  * Singleton Supabase client instance configured for browser authentication.

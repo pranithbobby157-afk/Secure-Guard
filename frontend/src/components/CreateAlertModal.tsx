@@ -21,14 +21,43 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
   const [instruction, setInstruction] = useState('');
   const [hazardType, setHazardType] = useState('cyclone');
   const [severity, setSeverity] = useState('critical');
-  const [areaId, setAreaId] = useState(areas[0]?.id || 'area-chennai-coastal');
+  const [areaId, setAreaId] = useState(areas[0]?.id || 'area-chennai');
+  const initialArea = areas.find((a) => a.id === (areas[0]?.id || 'area-chennai')) || areas[0];
+  const [lat, setLat] = useState<string>(initialArea ? initialArea.center_lat.toFixed(4) : '13.0827');
+  const [lng, setLng] = useState<string>(initialArea ? initialArea.center_lng.toFixed(4) : '80.2707');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAreaChange = (newAreaId: string) => {
+    setAreaId(newAreaId);
+    const selected = areas.find((a) => a.id === newAreaId);
+    if (selected) {
+      setLat(selected.center_lat.toFixed(4));
+      setLng(selected.center_lng.toFixed(4));
+    }
+  };
+
+  const handleUseGps = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLat(pos.coords.latitude.toFixed(4));
+          setLng(pos.coords.longitude.toFixed(4));
+        },
+        () => {
+          // fallback
+        }
+      );
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
 
     try {
       await api.adminCreateAlert(token, {
@@ -41,7 +70,9 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
         area_id: areaId,
         source_id: 'source-imd',
         is_simulated: true,
-        verification_status: 'editor_verified'
+        verification_status: 'editor_verified',
+        lat: !isNaN(parsedLat) ? parsedLat : null,
+        lng: !isNaN(parsedLng) ? parsedLng : null
       });
       onAlertCreated();
       onClose();
@@ -133,7 +164,7 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
             </label>
             <select
               value={areaId}
-              onChange={(e) => setAreaId(e.target.value)}
+              onChange={(e) => handleAreaChange(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-[#D0D5DD] px-3 py-2 text-sm focus:border-[#007F78] focus:outline-none"
             >
               {areas.map((a) => (
@@ -142,6 +173,46 @@ export const CreateAlertModal: React.FC<CreateAlertModalProps> = ({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#344054]">
+                  Latitude (for Map Marker)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleUseGps}
+                  className="text-[10px] text-[#007F78] font-bold hover:underline"
+                >
+                  Use GPS
+                </button>
+              </div>
+              <input
+                type="number"
+                step="0.0001"
+                required
+                value={lat}
+                onChange={(e) => setLat(e.target.value)}
+                placeholder="e.g. 13.0827"
+                className="mt-1.5 w-full rounded-lg border border-[#D0D5DD] px-3 py-2 text-sm focus:border-[#007F78] focus:outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[#344054]">
+                Longitude (for Map Marker)
+              </label>
+              <input
+                type="number"
+                step="0.0001"
+                required
+                value={lng}
+                onChange={(e) => setLng(e.target.value)}
+                placeholder="e.g. 80.2707"
+                className="mt-1.5 w-full rounded-lg border border-[#D0D5DD] px-3 py-2 text-sm focus:border-[#007F78] focus:outline-none font-mono"
+              />
+            </div>
           </div>
 
           <div>

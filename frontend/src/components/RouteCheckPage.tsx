@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 import { Alert, Area } from '../types';
 import { Copy } from '../i18n/messages';
 import { Icon } from './Icon';
+import { Page } from './Header';
 import {
   INDIAN_DESTINATIONS,
   IndianDestination,
@@ -15,13 +17,15 @@ interface RouteCheckPageProps {
   alerts: Alert[];
   currentArea?: Area;
   userLocation: { lat: number; lng: number } | null;
+  navigate?: (p: Page) => void;
 }
 
 export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
   t,
   alerts,
   currentArea,
-  userLocation
+  userLocation,
+  navigate
 }) => {
   const [startQuery, setStartQuery] = useState(
     currentArea?.name || 'Chennai (Central & Coastal)'
@@ -124,6 +128,131 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
+
+  // Initialize and update Route Corridor Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [startDest?.lat || 13.0827, startDest?.lng || 80.2707],
+        zoom: 10,
+        zoomControl: false,
+        scrollWheelZoom: true,
+        dragging: true,
+        touchZoom: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Add zoom control at bottom-right
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      layerGroupRef.current = L.layerGroup().addTo(map);
+      mapInstanceRef.current = map;
+    }
+
+    const map = mapInstanceRef.current;
+    const layers = layerGroupRef.current;
+    if (!map || !layers) return;
+
+    layers.clearLayers();
+
+    if (startDest && endDest) {
+      // 1. Origin Marker
+      const originPin = L.divIcon({
+        className: 'custom-route-pin',
+        html: `
+          <div style="background: #007F78; color: white; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 2px solid white; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+            <span>🟢</span><span>${startDest.name.split(' ')[0]}</span>
+          </div>
+        `,
+        iconSize: [80, 28],
+        iconAnchor: [40, 14]
+      });
+      L.marker([startDest.lat, startDest.lng], { icon: originPin })
+        .bindPopup(`<strong>Origin:</strong> ${startDest.name} (${startDest.state})`)
+        .addTo(layers);
+
+      // 2. Destination Marker
+      const destPin = L.divIcon({
+        className: 'custom-route-pin',
+        html: `
+          <div style="background: #175CD3; color: white; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 2px solid white; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+            <span>🏁</span><span>${endDest.name.split(' ')[0]}</span>
+          </div>
+        `,
+        iconSize: [80, 28],
+        iconAnchor: [40, 14]
+      });
+      L.marker([endDest.lat, endDest.lng], { icon: destPin })
+        .bindPopup(`<strong>Destination:</strong> ${endDest.name} (${endDest.state})`)
+        .addTo(layers);
+
+      // 3. Transit Corridor Polyline
+      const corridorPolyline = L.polyline(
+        [
+          [startDest.lat, startDest.lng],
+          [endDest.lat, endDest.lng]
+        ],
+        { color: '#007F78', weight: 4, dashArray: '6, 8', opacity: 0.9 }
+      );
+      corridorPolyline.bindPopup(`<strong>Transit Corridor</strong><br/>Direct distance: ${distanceKm} km`);
+      corridorPolyline.addTo(layers);
+
+      // 4. Corridor Geographic Buffer Zone (approx. 20-30km radius)
+      L.circle([midLat, midLng], {
+        color: '#007F78',
+        fillColor: '#007F78',
+        fillOpacity: 0.06,
+        radius: Math.max(distanceKm * 400, 12000),
+        weight: 1,
+        dashArray: '3, 6'
+      }).addTo(layers);
+
+      // 5. Active Hazards intersecting or near corridor
+      corridorHazards.forEach((hazard) => {
+        if (hazard.lat && hazard.lng) {
+          const isCritical = hazard.severity === 'critical';
+          const color = isCritical ? '#D92D20' : '#DC6803';
+          const circle = L.circle([hazard.lat, hazard.lng], {
+            color,
+            fillColor: color,
+            fillOpacity: 0.22,
+            radius: isCritical ? 3000 : 2000,
+            weight: 2
+          });
+          circle.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; max-width: 200px;">
+              <span style="font-size: 10px; font-weight: 800; color: ${color}; text-transform: uppercase;">⚠️ ${hazard.severity.toUpperCase()}</span>
+              <div style="font-weight: 700; margin-top: 2px; color: #101828;">${hazard.title}</div>
+              <div style="font-size: 11px; color: #475467; margin-top: 3px;">${hazard.description_original.substring(0, 90)}...</div>
+            </div>
+          `);
+          circle.addTo(layers);
+        }
+      });
+
+      // Fit map bounds to encompass the entire corridor
+      const bounds = L.latLngBounds([
+        [startDest.lat, startDest.lng],
+        [endDest.lat, endDest.lng]
+      ]);
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+
+      const timer = setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isCalculated, startDest, endDest, distanceKm, corridorHazards]);
 
   const startSuggestions = searchDestinations(startQuery);
   const destSuggestions = searchDestinations(destQuery);
@@ -347,14 +476,52 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleSaveRoute}
-                  className="flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475467] hover:bg-[#EAECF0]"
-                >
-                  <Icon name="bookmark" size={14} />
-                  {savedSuccess ? 'Saved!' : 'Save Route'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {navigate && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('map')}
+                      className="flex items-center gap-1.5 rounded-lg border border-[#007F78] bg-[#DDF8EF] px-3 py-1.5 text-xs font-bold text-[#005E59] hover:bg-[#c6f2e4] transition-colors shadow-xs"
+                      title="Open full interactive map centered on this region"
+                    >
+                      <Icon name="route" size={14} />
+                      Re-route to Live Map
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveRoute}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475467] hover:bg-[#EAECF0]"
+                  >
+                    <Icon name="bookmark" size={14} />
+                    {savedSuccess ? 'Saved!' : 'Save Route'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Interactive Route Corridor Map */}
+              <div className="mt-5 rounded-xl border border-[#CBD5E1] overflow-hidden bg-white shadow-xs">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs">
+                  <div className="flex items-center gap-2 font-bold text-[#344054]">
+                    <span className="size-2 rounded-full bg-[#007F78]"></span>
+                    <span>Transit Corridor & Hazard Intersect Map</span>
+                  </div>
+                  {navigate && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('map')}
+                      className="font-bold text-[#007F78] hover:text-[#005E59] flex items-center gap-1 hover:underline"
+                    >
+                      <span>Open Full Map</span>
+                      <Icon name="arrow" size={13} />
+                    </button>
+                  )}
+                </div>
+                <div
+                  ref={mapContainerRef}
+                  className="h-[280px] w-full"
+                  style={{ minHeight: '260px' }}
+                />
               </div>
 
               {/* Corridor Hazard Status */}

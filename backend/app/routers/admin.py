@@ -17,10 +17,26 @@ from app.services.translation_service import get_or_create_translation
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+def require_editor_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("admin", "editor"):
+        raise HTTPException(
+            status_code=403,
+            detail="Access restricted. Editor or administrator privileges required."
+        )
+    return current_user
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Access restricted. Administrator privileges required."
+        )
+    return current_user
+
 @router.post("/alerts", response_model=AlertOut)
 def create_alert(
     req: AlertCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -111,7 +127,7 @@ def create_alert(
 def update_alert(
     alert_id: str,
     req: AlertUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
@@ -189,7 +205,7 @@ def update_alert(
 @router.delete("/alerts/{alert_id}")
 def delete_alert(
     alert_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
@@ -214,7 +230,7 @@ def delete_alert(
 @router.post("/safe-zones", response_model=SafeZoneOut)
 def create_safe_zone(
     req: SafeZoneCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -255,7 +271,7 @@ def create_safe_zone(
 @router.post("/sources/{source_id}/refresh", response_model=SourceOut)
 def refresh_source_endpoint(
     source_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     return IngestionService.refresh_source(db, source_id, current_user.username)
@@ -264,14 +280,14 @@ def refresh_source_endpoint(
 def toggle_source_status(
     source_id: str,
     new_status: str = Body(..., embed=True),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     return IngestionService.toggle_source_health(db, source_id, new_status, current_user.username)
 
 @router.get("/audit-logs", response_model=List[AuditLogOut])
 def get_audit_logs(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor_or_admin),
     db: Session = Depends(get_db)
 ):
     return db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(50).all()

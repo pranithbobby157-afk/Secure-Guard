@@ -93,7 +93,9 @@ export function buildApiUrl(endpoint: string, base: string = API_BASE): string {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = buildApiUrl(endpoint);
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const anonKey =
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqYnNwcmRrcmhuaW1oaWtucHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1Njc3NjMsImV4cCI6MjEwNzE0Mzc2M30.gzCLd46GVMJ6YbDr2RhyKdtu0wCGuzXij20ZPVVUYcc';
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(anonKey && API_BASE.includes('supabase.co') ? { apikey: anonKey } : {}),

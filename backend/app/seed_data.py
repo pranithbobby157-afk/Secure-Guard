@@ -323,7 +323,7 @@ def seed_database():
         db.add_all(contacts)
         db.commit()
 
-        # 6. Default Admin & Editor Users
+        # 6. Default Admin, Editor, and User Accounts
         users = [
             User(
                 id="user-admin-1",
@@ -337,6 +337,13 @@ def seed_database():
                 username="editor",
                 password_hash=hash_password("editor123"),
                 role="editor",
+                created_at=now
+            ),
+            User(
+                id="user-general-1",
+                username="user",
+                password_hash=hash_password("user123"),
+                role="user",
                 created_at=now
             )
         ]

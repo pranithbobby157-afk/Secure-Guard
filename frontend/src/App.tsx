@@ -102,9 +102,8 @@ export const App: React.FC = () => {
     try {
       const [statusRes, alertsRes, safeZonesRes, contactsRes] = await Promise.all([
         api.getStatus(),
-        api.getAlerts({ area_id: selectedAreaId, status: 'all' }),
+        api.getAlerts({ status: 'all' }),
         api.getSafeZones({
-          area_id: selectedAreaId,
           user_lat: userLocation?.lat,
           user_lng: userLocation?.lng
         }),
@@ -272,6 +271,7 @@ export const App: React.FC = () => {
             alerts={alerts}
             currentArea={currentArea}
             userLocation={userLocation}
+            navigate={navigate}
           />
         )}
 
@@ -318,6 +318,7 @@ export const App: React.FC = () => {
             navigate={navigate}
             areas={areas}
             alerts={alerts}
+            safeZones={safeZones}
             status={status}
             onRefreshData={loadData}
           />

@@ -22,7 +22,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'sources' | 'audit'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'places' | 'sources' | 'audit'>('create');
 
   // Form states for creating simulated alert
   const [formAreaId, setFormAreaId] = useState(areas[0]?.id || 'area-chennai-coastal');
@@ -35,6 +35,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [formLng, setFormLng] = useState('80.2350');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createSuccess, setCreateSuccess] = useState('');
+
+  // Form states for creating safe place / shelter
+  const [szName, setSzName] = useState('Marina Beach GCC Relief Shelter');
+  const [szType, setSzType] = useState('cyclone_shelter');
+  const [szAddress, setSzAddress] = useState('Kamarajar Salai, Triplicane, Chennai 600005');
+  const [szLat, setSzLat] = useState('13.0500');
+  const [szLng, setSzLng] = useState('80.2824');
+  const [szPhone, setSzPhone] = useState('044-25619206');
+  const [szCapacity, setSzCapacity] = useState('Capacity 400 evacuees, food and medical supplies');
 
   // Sources and audit logs
   const [sources, setSources] = useState<Source[]>([]);
@@ -114,6 +123,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       onAlertCreated();
     } catch (err: any) {
       alert(err.message || 'Failed to create alert');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateSafeZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIsSubmitting(true);
+    setCreateSuccess('');
+    try {
+      await api.adminCreateSafeZone(token, {
+        area_id: formAreaId,
+        name: szName,
+        facility_type: szType,
+        address: szAddress,
+        latitude: parseFloat(szLat) || 13.05,
+        longitude: parseFloat(szLng) || 80.2824,
+        source_name: 'Greater Chennai Corporation (GCC)',
+        source_url: 'https://chennaicorporation.gov.in',
+        verification_status: 'official_verified',
+        operational_status: 'open',
+        contact_phone: szPhone || null,
+        capacity_notes: szCapacity || null,
+        is_simulated: true
+      });
+      setCreateSuccess('Safe place registered and added to live map with verified shelter status!');
+      onAlertCreated();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create safe place');
     } finally {
       setIsSubmitting(false);
     }
@@ -206,6 +245,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </span>
             </div>
 
+            {/* Quick Test Credentials */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>
+                Quick Test Accounts:
+              </span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => { setUsername('admin'); setPassword('admin123'); }}
+                  style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Admin (admin123)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setUsername('editor'); setPassword('editor123'); }}
+                  style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#007F78' }}
+                >
+                  Editor (editor123)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setUsername('user'); setPassword('user123'); }}
+                  style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#175CD3' }}
+                >
+                  User (user123)
+                </button>
+              </div>
+            </div>
+
             {loginError && (
               <div style={{ color: '#f87171', fontSize: '0.82rem', marginBottom: '0.85rem' }}>
                 {loginError}
@@ -259,7 +328,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className={`filter-chip ${activeTab === 'create' ? 'active' : ''}`}
                   onClick={() => setActiveTab('create')}
                 >
-                  <PlusCircle size={13} style={{ display: 'inline', marginRight: 4 }} /> Create Simulated Alert
+                  <PlusCircle size={13} style={{ display: 'inline', marginRight: 4 }} /> Create Alert
+                </button>
+                <button
+                  className={`filter-chip ${activeTab === 'places' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('places')}
+                >
+                  <PlusCircle size={13} style={{ display: 'inline', marginRight: 4 }} /> Add Safe Place
                 </button>
                 <button
                   className={`filter-chip ${activeTab === 'sources' ? 'active' : ''}`}
@@ -405,7 +480,128 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </form>
             )}
 
-            {/* TAB 2: Sources */}
+            {/* TAB 2: Add Safe Place */}
+            {activeTab === 'places' && (
+              <form onSubmit={handleCreateSafeZone}>
+                {createSuccess && (
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', padding: '0.5rem 0.85rem', borderRadius: '6px', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                    {createSuccess}
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Shelter / Facility Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={szName}
+                    onChange={(e) => setSzName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Facility Type</label>
+                    <select
+                      className="form-input"
+                      value={szType}
+                      onChange={(e) => setSzType(e.target.value)}
+                    >
+                      <option value="cyclone_shelter">Cyclone Shelter</option>
+                      <option value="flood_relief_camp">Flood Relief Camp</option>
+                      <option value="hospital">Hospital / Medical Hub</option>
+                      <option value="community_hall">Community Hall</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Jurisdiction</label>
+                    <select
+                      className="form-input"
+                      value={formAreaId}
+                      onChange={(e) => setFormAreaId(e.target.value)}
+                    >
+                      {areas.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Street Address</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={szAddress}
+                    onChange={(e) => setSzAddress(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Latitude</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={szLat}
+                      onChange={(e) => setSzLat(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Longitude</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={szLng}
+                      onChange={(e) => setSzLng(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Contact Phone</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={szPhone}
+                      onChange={(e) => setSzPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Capacity Notes</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={szCapacity}
+                      onChange={(e) => setSzCapacity(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-action"
+                  style={{
+                    width: '100%',
+                    background: '#059669',
+                    color: 'white',
+                    justifyContent: 'center',
+                    padding: '0.75rem'
+                  }}
+                >
+                  {isSubmitting ? 'Registering Place...' : 'Register Safe Place on Map'}
+                </button>
+              </form>
+            )}
+
+            {/* TAB 3: Sources */}
             {activeTab === 'sources' && (
               <div>
                 <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '1rem' }}>

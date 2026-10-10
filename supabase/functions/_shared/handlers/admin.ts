@@ -21,6 +21,14 @@ export async function handleAdmin(
   const currentUser = authResult.user;
   const method = req.method.toUpperCase();
 
+  // Citizen / standard users do not have permissions for admin operations
+  if (currentUser.role === 'user') {
+    return errorResponse(
+      'Access restricted. Standard user accounts cannot perform editor or administrator operations.',
+      403
+    );
+  }
+
   // 1. Audit Logs: GET /admin/audit-logs
   if (resource === 'audit-logs' && method === 'GET') {
     const { data: logs, error } = await supabase

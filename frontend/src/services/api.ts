@@ -184,6 +184,16 @@ export const api = {
     );
   },
 
+  signup: (username: string, password: string, email?: string) => {
+    return request<{ access_token: string; token_type: string; role: string; username: string }>(
+      '/api/auth/signup',
+      {
+        method: 'POST',
+        body: JSON.stringify({ username, password, email })
+      }
+    );
+  },
+
   getMe: (token: string) => {
     return request<{ id: string; username: string; role: string }>('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }

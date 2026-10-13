@@ -8,6 +8,7 @@ import { CreateAlertModal } from './CreateAlertModal';
 import { EditAlertModal } from './EditAlertModal';
 import { CreateSafeZoneModal } from './CreateSafeZoneModal';
 import { EditSafeZoneModal } from './EditSafeZoneModal';
+import { ChangePasswordModal } from './ChangePasswordModal';
 import { supabase, signInWithGoogle, signOutGoogle, getGoogleSession } from '../services/supabase';
 import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
 
@@ -68,11 +69,14 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleRoleStatus, setGoogleRoleStatus] = useState<'verifying' | 'assigned' | 'unassigned' | null>(null);
 
-  const [preview, setPreview] = useState(false);
+  const [authPortalTab, setAuthPortalTab] = useState<'admin' | 'user'>('admin');
+  const [userAuthMode, setUserAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [signupEmail, setSignupEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Operations tab
   const [activeTab, setActiveTab] = useState<'alerts' | 'places' | 'sources' | 'audit'>('alerts');
@@ -183,15 +187,43 @@ export const EditorPage: React.FC<EditorPageProps> = ({
 
     try {
       const res = await api.login(username, password);
+      if (authPortalTab === 'admin' && res.role === 'user') {
+        throw new Error('This account only has citizen privileges. Please use the Citizen Portal tab or sign in with an administrator account.');
+      }
       setAuthToken(res.access_token);
       setCurrentUser(res.username);
       setUserRole(res.role);
       localStorage.setItem('saferoute_auth_token', res.access_token);
       localStorage.setItem('saferoute_auth_user', res.username);
       localStorage.setItem('saferoute_auth_role', res.role);
-      setPreview(false);
     } catch (err: any) {
       setAuthError(err.message || 'Invalid username or password.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSignup = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setAuthError(null);
+
+    if (password.length < 8) {
+      setAuthError('Password must be at least 8 characters long.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await api.signup(username, password, signupEmail);
+      setAuthToken(res.access_token);
+      setCurrentUser(res.username);
+      setUserRole(res.role);
+      localStorage.setItem('saferoute_auth_token', res.access_token);
+      localStorage.setItem('saferoute_auth_user', res.username);
+      localStorage.setItem('saferoute_auth_role', res.role);
+    } catch (err: any) {
+      setAuthError(err.message || 'Registration failed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,7 +233,6 @@ export const EditorPage: React.FC<EditorPageProps> = ({
     setAuthToken(null);
     setCurrentUser(null);
     setUserRole(null);
-    setPreview(false);
     localStorage.removeItem('saferoute_auth_token');
     localStorage.removeItem('saferoute_auth_user');
     localStorage.removeItem('saferoute_auth_role');
@@ -383,15 +414,13 @@ export const EditorPage: React.FC<EditorPageProps> = ({
     );
   }
 
-  const isAuthenticatedOrPreview = !!authToken || preview;
-
-  // View 1: Sign-in view
-  if (!isAuthenticatedOrPreview) {
+  // View 1: Sign-in view (No mock logins, separate Admin and User flows)
+  if (!authToken) {
     return (
       <div className="editor-shell">
         <button
           type="button"
-          className="back-link"
+          className="back-link cursor-pointer"
           onClick={() => navigate('dashboard')}
         >
           <Icon name="arrow" size={16} />
@@ -399,167 +428,224 @@ export const EditorPage: React.FC<EditorPageProps> = ({
         </button>
 
         <div className="sign-in-layout">
+          {/* Left Brand Panel */}
           <section className="sign-in-brand">
             <span className="brand-mark large">
               <Icon name="shield" size={29} />
             </span>
-            <span className="kicker">SAFEROUTE OPERATIONS</span>
-            <h1>{t.signIn}</h1>
-            <p>{t.signInIntro}</p>
+            <span className="kicker">SAFEROUTE ACCESS CONTROL</span>
+            <h1>Emergency Authentication</h1>
+            <p>
+              Select your clearance tier to access official disaster command or citizen travel safety tools.
+            </p>
 
-            <div className="security-points">
+            {/* Portal Tier Selector Tabs */}
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={() => { setAuthPortalTab('admin'); setAuthError(null); }}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                  authPortalTab === 'admin'
+                    ? 'border-[#007F78] bg-[#DDF8EF]/30 ring-2 ring-[#007F78]/20'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="grid size-7 place-items-center rounded-lg bg-[#007F78] text-white text-xs font-bold">
+                    🛡️
+                  </span>
+                  <div>
+                    <strong className="block text-sm text-white">Disaster Operations Admin</strong>
+                    <span className="text-[11px] text-slate-300">
+                      Restricted to rohithkarthik25@gmail.com & registered personnel
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setAuthPortalTab('user'); setAuthError(null); }}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                  authPortalTab === 'user'
+                    ? 'border-[#175CD3] bg-[#EFF8FF]/20 ring-2 ring-[#175CD3]/20'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="grid size-7 place-items-center rounded-lg bg-[#175CD3] text-white text-xs font-bold">
+                    👤
+                  </span>
+                  <div>
+                    <strong className="block text-sm text-white">Citizen & Tourist Portal</strong>
+                    <span className="text-[11px] text-slate-300">
+                      Public safety route checks, shelter finder & offline phrases
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="security-points mt-6">
               <span>
                 <Icon name="lock" size={18} />
-                {t.authNote}
+                Strict Role-Based Authorization
               </span>
               <span>
                 <Icon name="document" size={18} />
-                {t.audit} (Tamper-evident logs)
+                Tamper-Evident Audit Logging
               </span>
             </div>
           </section>
 
-          <form className="sign-in-card" onSubmit={handleLogin}>
-            <div className="form-icon">
-              <Icon name="lock" size={22} />
-            </div>
-            <h2>{t.signIn}</h2>
-            <p>{t.signInIntro}</p>
-
-            {/* Google OAuth Section */}
-            {googleUser ? (
-              <div className="google-status-card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <strong>Signed in as {googleUser.email}</strong>
-                    <p className="mt-0.5 text-[11px] text-[#475467]">
-                      {googleRoleStatus === 'verifying'
-                        ? 'Verifying administrative authorization…'
-                        : 'Google Verified · Visitor / Crisis Viewer (Unassigned)'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignOut}
-                    className="rounded-lg border border-teal-300 bg-white px-2.5 py-1 text-xs font-bold text-[#005E59] hover:bg-teal-50"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-                <p className="mt-2 text-[11px] border-t border-teal-200/60 pt-2 text-[#475467]">
-                  Note: Administrative operations (creating alerts, toggling feeds) require an authorized administrator or editor account. This Google account ({googleUser.email}) is not currently assigned an administrative role.
+          {/* Right Form Card */}
+          <div className="sign-in-card">
+            {/* Header for Active Portal */}
+            {authPortalTab === 'admin' ? (
+              <div className="mb-4">
+                <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full mb-2">
+                  RESTRICTED COMMAND CLEARANCE
+                </span>
+                <h2 className="text-xl font-extrabold text-[#101828]">Admin Operations Login</h2>
+                <p className="text-xs text-[#667085] mt-1">
+                  Designated administrator clearance is granted to <strong className="text-[#101828]">rohithkarthik25@gmail.com</strong> and registered Supabase operations accounts.
                 </p>
               </div>
             ) : (
-              <div className="google-auth-container">
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading}
-                  className="google-btn"
-                >
-                  <GoogleIcon size={18} />
-                  <span>
-                    {isGoogleLoading ? 'Connecting to Google…' : 'Sign In with Google'}
-                  </span>
-                </button>
-
-                {googleError && (
-                  <p className="form-error" role="alert">
-                    {googleError}
-                  </p>
-                )}
-
-                <div className="auth-divider">
-                  <span>or continue with credentials</span>
-                </div>
+              <div className="mb-4">
+                <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full mb-2">
+                  CITIZEN & TRAVELER ACCESS
+                </span>
+                <h2 className="text-xl font-extrabold text-[#101828]">Citizen Portal Access</h2>
+                <p className="text-xs text-[#667085] mt-1">
+                  Access verified traveler route checks, personal offline safety guides, and nearby shelter directories.
+                </p>
               </div>
             )}
 
-            {/* Quick Test Logins */}
-            <div className="mb-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 text-xs">
-              <span className="text-[11px] font-bold text-[#475467] block mb-1.5 uppercase tracking-wide">
-                Quick Test Credentials:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => { setUsername('admin'); setPassword('admin123'); }}
-                  className="rounded border border-[#D0D5DD] bg-white px-2 py-1 text-[11px] font-bold text-[#101828] hover:bg-slate-50 cursor-pointer"
-                >
-                  Admin (admin123)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setUsername('editor'); setPassword('editor123'); }}
-                  className="rounded border border-[#D0D5DD] bg-white px-2 py-1 text-[11px] font-bold text-[#005E59] hover:bg-teal-50 cursor-pointer"
-                >
-                  Editor (editor123)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setUsername('user'); setPassword('user123'); }}
-                  className="rounded border border-[#D0D5DD] bg-white px-2 py-1 text-[11px] font-bold text-[#175CD3] hover:bg-blue-50 cursor-pointer"
-                >
-                  User (user123)
-                </button>
+            {/* Google OAuth Button */}
+            <div className="google-auth-container mb-4">
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
+                className={`google-btn w-full ${authPortalTab === 'admin' ? 'border-[#007F78]/30 hover:border-[#007F78]' : ''}`}
+              >
+                <GoogleIcon size={18} />
+                <span>
+                  {isGoogleLoading
+                    ? 'Connecting to Google…'
+                    : authPortalTab === 'admin'
+                    ? 'Sign In with Google (Administrator)'
+                    : 'Continue with Google (Tourist / Citizen)'}
+                </span>
+              </button>
+
+              {googleError && (
+                <p className="form-error mt-2" role="alert">
+                  {googleError}
+                </p>
+              )}
+
+              <div className="auth-divider">
+                <span>or continue with {authPortalTab === 'admin' ? 'admin credentials' : 'citizen account'}</span>
               </div>
             </div>
 
-            <label>
-              <span>{t.email} / Username</span>
-              <div>
-                <Icon name="mail" size={17} />
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  placeholder="Username"
-                />
+            {/* Citizen Portal Mode Toggle (Sign In vs Register) */}
+            {authPortalTab === 'user' && (
+              <div className="mb-4 flex rounded-lg border border-[#E2E8F0] p-1 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => { setUserAuthMode('signin'); setAuthError(null); }}
+                  className={`flex-1 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    userAuthMode === 'signin' ? 'bg-white text-[#101828] shadow-xs' : 'text-[#667085]'
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setUserAuthMode('signup'); setAuthError(null); }}
+                  className={`flex-1 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    userAuthMode === 'signup' ? 'bg-white text-[#101828] shadow-xs' : 'text-[#667085]'
+                  }`}
+                >
+                  Create Account
+                </button>
               </div>
-            </label>
-
-            <label>
-              <span>{t.password}</span>
-              <div>
-                <Icon name="lock" size={17} />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                />
-              </div>
-            </label>
-
-            {authError && (
-              <p className="form-error" role="alert">
-                {authError}
-              </p>
             )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="primary-button full"
-            >
-              {isSubmitting ? 'Authenticating…' : t.continue}
-              <Icon name="arrow" size={17} />
-            </button>
+            {/* Email/Password Form */}
+            <form onSubmit={authPortalTab === 'user' && userAuthMode === 'signup' ? handleSignup : handleLogin}>
+              <label>
+                <span>{authPortalTab === 'user' && userAuthMode === 'signup' ? 'Choose Username' : 'Email / Username'}</span>
+                <div>
+                  <Icon name="mail" size={17} />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                    placeholder={authPortalTab === 'admin' ? 'admin / email' : 'Username'}
+                  />
+                </div>
+              </label>
 
-            <button
-              type="button"
-              className="preview-button"
-              onClick={() => setPreview(true)}
-            >
-              <Icon name="eye" size={17} />
-              {t.preview} (Read-Only)
-            </button>
-          </form>
+              {authPortalTab === 'user' && userAuthMode === 'signup' && (
+                <label>
+                  <span>Email Address (Optional)</span>
+                  <div>
+                    <Icon name="mail" size={17} />
+                    <input
+                      type="email"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
+                      placeholder="your.email@example.com"
+                    />
+                  </div>
+                </label>
+              )}
+
+              <label>
+                <span>{t.password}</span>
+                <div>
+                  <Icon name="lock" size={17} />
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={authPortalTab === 'user' && userAuthMode === 'signup' ? 'new-password' : 'current-password'}
+                    placeholder="•••••••• (Min 8 chars)"
+                  />
+                </div>
+              </label>
+
+              {authError && (
+                <p className="form-error" role="alert">
+                  {authError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="primary-button full mt-3 cursor-pointer"
+              >
+                {isSubmitting
+                  ? 'Authenticating…'
+                  : authPortalTab === 'admin'
+                  ? 'Access Operations Command'
+                  : userAuthMode === 'signup'
+                  ? 'Create Citizen Account'
+                  : 'Sign In as Citizen'}
+                <Icon name="arrow" size={17} />
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -621,16 +707,26 @@ export const EditorPage: React.FC<EditorPageProps> = ({
 
         <div className="mt-8 pt-4 border-t border-white/10 lg:absolute lg:bottom-6 lg:left-5 lg:right-5">
           <div className="text-xs text-slate-400 mb-2">
-            Active: <b>{currentUser || (googleUser?.email ? `${googleUser.email} (Google)` : 'Demo Editor (Preview)')}</b>
+            Active: <b>{currentUser || googleUser?.email}</b>
             {userRole && <span className="ml-1 text-[11px] font-semibold uppercase tracking-wider text-teal-300">({userRole})</span>}
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="exit-preview text-xs font-bold text-red-300 hover:text-red-200"
-          >
-            {authToken ? 'Log Out' : `${t.close} · ${t.preview}`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsChangePasswordOpen(true)}
+              className="text-xs font-bold text-teal-300 hover:text-teal-200 cursor-pointer"
+            >
+              Change Password
+            </button>
+            <span className="text-slate-600">·</span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="exit-preview text-xs font-bold text-red-300 hover:text-red-200 cursor-pointer"
+            >
+              Log Out
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -648,7 +744,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
             <h1>{t.operations}</h1>
           </div>
           {authToken ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-[#007F78] bg-[#DDF8EF] px-3.5 py-2 text-xs font-bold text-[#005E59] hover:bg-[#cbf3e6] flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
@@ -664,6 +760,24 @@ export const EditorPage: React.FC<EditorPageProps> = ({
               >
                 <Icon name="plus" size={17} />
                 {t.createAlert}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] hover:bg-slate-50 flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                onClick={() => setIsChangePasswordOpen(true)}
+                title="Change Account Password"
+              >
+                <Icon name="lock" size={15} />
+                <span>Password</span>
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                onClick={handleLogout}
+                title="Log out of session"
+              >
+                <Icon name="x" size={15} />
+                <span>Log Out</span>
               </button>
             </div>
           ) : (
@@ -1040,6 +1154,18 @@ export const EditorPage: React.FC<EditorPageProps> = ({
           onSafeZoneUpdated={() => {
             onRefreshData();
             setEditingSafeZone(null);
+          }}
+        />
+      )}
+
+      {/* Change Password Modal */}
+      {isChangePasswordOpen && authToken && (
+        <ChangePasswordModal
+          token={authToken}
+          username={currentUser || 'admin'}
+          onClose={() => setIsChangePasswordOpen(false)}
+          onSuccess={() => {
+            setIsChangePasswordOpen(false);
           }}
         />
       )}

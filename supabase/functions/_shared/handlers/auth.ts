@@ -53,6 +53,74 @@ export async function handleAuth(
     });
   }
 
+  // POST /auth/signup
+  if (action === 'signup' && method === 'POST') {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse('Invalid JSON body', 400);
+    }
+
+    const { username, password, email } = body || {};
+    const finalUsername = (username || email || '').trim();
+    if (!finalUsername || !password) {
+      return errorResponse('Missing username or password', 400);
+    }
+
+    if (password.length < 8) {
+      return errorResponse('Password must be at least 8 characters long', 400);
+    }
+
+    // Check if user already exists
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', finalUsername)
+      .maybeSingle();
+
+    if (existing) {
+      return errorResponse('Username or email already registered', 400);
+    }
+
+    const assignedRole = finalUsername.toLowerCase() === 'rohithkarthik25@gmail.com' ? 'admin' : 'user';
+    const pwdHash = await hashPassword(password);
+    const userId = `user-${crypto.randomUUID().replace(/-/g, '').substring(0, 10)}`;
+
+    const newUser = {
+      id: userId,
+      username: finalUsername,
+      password_hash: pwdHash,
+      role: assignedRole,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error: insErr } = await supabase.from('users').insert(newUser);
+    if (insErr) {
+      return errorResponse(`Registration failed: ${insErr.message}`, 500);
+    }
+
+    const token = await createAccessToken({
+      sub: finalUsername,
+      role: assignedRole,
+    });
+
+    await logAudit(supabase, {
+      userId: userId,
+      action: 'USER_REGISTER',
+      entityType: 'user',
+      entityId: userId,
+      details: { username: finalUsername, role: assignedRole },
+    });
+
+    return jsonResponse({
+      access_token: token,
+      token_type: 'bearer',
+      role: assignedRole,
+      username: finalUsername,
+    });
+  }
+
   // GET /auth/me
   if (action === 'me' && method === 'GET') {
     const authResult = await authenticateUser(req, supabase);

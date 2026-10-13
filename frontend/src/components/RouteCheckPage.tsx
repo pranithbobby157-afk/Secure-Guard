@@ -282,19 +282,18 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
       </section>
 
       {/* Route Form */}
-      <div className="grid gap-8 lg:grid-cols-[1fr_1.3fr]">
+      <div className="grid gap-8 lg:grid-cols-[1fr_1.35fr]">
         <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-extrabold text-[#101828] mb-4 flex items-center gap-2">
-            <Icon name="compass" size={19} />
-            Check Transit Route
+          <h2 className="text-base font-extrabold text-[#101828] mb-5">
+            Check transit route
           </h2>
 
           <form onSubmit={handleCalculate} className="space-y-4">
             {/* Start Point */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#475467]">
-                  Start Location (Origin)
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#475467]">
+                  START
                 </label>
                 {userLocation && (
                   <button
@@ -302,12 +301,12 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
                     onClick={handleUseGps}
                     className="text-[11px] font-bold text-[#007F78] hover:underline flex items-center gap-1"
                   >
-                    <Icon name="location" size={12} />
-                    Use My GPS
+                    Use my GPS
                   </button>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative flex items-center">
+                <span className="absolute start-3.5 size-2 rounded-full bg-[#10B981]" />
                 <input
                   type="text"
                   value={startQuery}
@@ -319,7 +318,7 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
                     if (match) setStartDest(match);
                   }}
                   placeholder="e.g. Chennai, Madurai, Bengaluru..."
-                  className="w-full rounded-lg border border-[#D0D5DD] px-3.5 py-2.5 text-sm text-[#101828] focus:border-[#007F78] focus:ring-1 focus:ring-[#007F78]"
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-[#FAFCFC] ps-8 pe-3.5 py-2.5 text-xs font-bold text-[#101828] focus:border-[#007F78] focus:bg-white focus:outline-none"
                 />
               </div>
               {startSuggestions.length > 0 && startQuery !== startDest?.name && (
@@ -346,7 +345,7 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
               <button
                 type="button"
                 onClick={handleSwap}
-                className="flex size-8 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] text-[#475467] hover:bg-[#EAECF0]"
+                className="flex size-8 items-center justify-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[#475467] hover:bg-[#EAECF0] transition-colors"
                 title="Swap origin and destination"
                 aria-label="Swap origin and destination"
               >
@@ -356,10 +355,11 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
 
             {/* Destination Point */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#475467] mb-1">
-                Destination Location
+              <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#475467] mb-1.5">
+                DESTINATION
               </label>
-              <div className="relative">
+              <div className="relative flex items-center">
+                <span className="absolute start-3.5 size-2 rounded-xs bg-[#D92D20]" />
                 <input
                   type="text"
                   value={destQuery}
@@ -371,7 +371,7 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
                     if (match) setEndDest(match);
                   }}
                   placeholder="e.g. Mahabalipuram, Puducherry, Ooty..."
-                  className="w-full rounded-lg border border-[#D0D5DD] px-3.5 py-2.5 text-sm text-[#101828] focus:border-[#007F78] focus:ring-1 focus:ring-[#007F78]"
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-[#FAFCFC] ps-8 pe-3.5 py-2.5 text-xs font-bold text-[#101828] focus:border-[#007F78] focus:bg-white focus:outline-none"
                 />
               </div>
               {destSuggestions.length > 0 && destQuery !== endDest?.name && (
@@ -402,24 +402,25 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
             )}
 
             {/* Calculate Button */}
-            <button type="submit" className="primary-button w-full mt-2">
-              <Icon name="route" size={16} />
-              Assess Route Corridor
+            <button
+              type="submit"
+              className="w-full mt-3 rounded-xl bg-[#136159] py-3 px-4 text-xs font-extrabold text-white hover:bg-[#0f4d47] transition-colors flex items-center justify-center gap-2 shadow-xs"
+            >
+              Assess route corridor
             </button>
           </form>
 
           {/* Quick Popular Destination Shortcuts */}
-          <div className="mt-6 border-t border-[#E2E8F0] pt-4">
-            <span className="text-[11px] font-bold text-[#667085] uppercase tracking-wider block mb-2">
-              Popular Tourist Corridors
+          <div className="mt-7 border-t border-[#E2E8F0] pt-4">
+            <span className="text-[10px] font-extrabold text-[#64748B] uppercase tracking-widest block mb-2.5">
+              POPULAR CORRIDORS
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {[
-                ['dest-chennai', 'dest-mahabalipuram', 'Chennai → Mahabalipuram'],
-                ['dest-chennai', 'dest-puducherry', 'Chennai → Pondicherry'],
-                ['dest-chennai', 'dest-kancheepuram', 'Chennai → Kanchipuram'],
-                ['dest-coimbatore', 'dest-ooty', 'Coimbatore → Ooty'],
-                ['dest-bengaluru', 'dest-chennai', 'Bengaluru → Chennai']
+                ['dest-chennai', 'dest-mahabalipuram', 'Chennai - Mahabalipuram'],
+                ['dest-chennai', 'dest-puducherry', 'Chennai - Pondicherry'],
+                ['dest-chennai', 'dest-kancheepuram', 'Chennai - Kanchipuram'],
+                ['dest-coimbatore', 'dest-ooty', 'Coimbatore - Ooty']
               ].map(([sId, eId, label]) => (
                 <button
                   type="button"
@@ -435,7 +436,7 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
                       setIsCalculated(true);
                     }
                   }}
-                  className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-xs font-semibold text-[#475467] hover:bg-[#EAECF0]"
+                  className="rounded-full border border-[#38D9A9] bg-[#E6FFFA] px-3.5 py-1.5 text-[11px] font-bold text-[#005E59] hover:bg-[#CCFBF1] transition-all"
                 >
                   {label}
                 </button>
@@ -464,123 +465,143 @@ export const RouteCheckPage: React.FC<RouteCheckPageProps> = ({
           </div>
 
           {isCalculated && startDest && endDest ? (
-            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4 border-b border-[#E2E8F0] pb-4">
-                <div>
-                  <span className="kicker">TRANSIT SUMMARY</span>
-                  <h3 className="text-xl font-extrabold text-[#101828] mt-1">
-                    {startDest.name} → {endDest.name}
-                  </h3>
-                  <p className="text-xs text-[#667085] mt-1">
-                    Direct distance: <strong>{distanceKm} km</strong> · Midpoint coordinates: ({midLat.toFixed(3)}, {midLng.toFixed(3)})
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {navigate && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('map')}
-                      className="flex items-center gap-1.5 rounded-lg border border-[#007F78] bg-[#DDF8EF] px-3 py-1.5 text-xs font-bold text-[#005E59] hover:bg-[#c6f2e4] transition-colors shadow-xs"
-                      title="Open full interactive map centered on this region"
-                    >
-                      <Icon name="route" size={14} />
-                      Re-route to Live Map
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSaveRoute}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475467] hover:bg-[#EAECF0]"
-                  >
-                    <Icon name="bookmark" size={14} />
-                    {savedSuccess ? 'Saved!' : 'Save Route'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Interactive Route Corridor Map */}
-              <div className="mt-5 rounded-xl border border-[#CBD5E1] overflow-hidden bg-white shadow-xs">
-                <div className="flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs">
-                  <div className="flex items-center gap-2 font-bold text-[#344054]">
-                    <span className="size-2 rounded-full bg-[#007F78]"></span>
-                    <span>Transit Corridor & Hazard Intersect Map</span>
-                  </div>
-                  {navigate && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('map')}
-                      className="font-bold text-[#007F78] hover:text-[#005E59] flex items-center gap-1 hover:underline"
-                    >
-                      <span>Open Full Map</span>
-                      <Icon name="arrow" size={13} />
-                    </button>
-                  )}
-                </div>
-                <div
-                  ref={mapContainerRef}
-                  className="h-[280px] w-full"
-                  style={{ minHeight: '260px' }}
-                />
-              </div>
-
-              {/* Corridor Hazard Status */}
-              <div className="mt-6">
-                <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#344054] mb-3 flex items-center justify-between">
-                  <span>Advisories Along Travel Corridor</span>
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-xs font-bold ${
-                      corridorHazards.length > 0
-                        ? 'bg-red-100 text-[#B42318]'
-                        : 'bg-emerald-100 text-[#079455]'
-                    }`}
-                  >
-                    {corridorHazards.length > 0
-                      ? `${corridorHazards.length} Advisories Active`
-                      : 'No Active Warnings'}
-                  </span>
-                </h4>
-
-                {corridorHazards.length > 0 ? (
-                  <div className="space-y-3">
-                    {corridorHazards.map((hazard) => (
-                      <div
-                        key={hazard.id}
-                        className="rounded-xl border border-red-200 bg-red-50/40 p-4 text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold uppercase tracking-wider text-[#D92D20]">
-                            {hazard.hazard_type.replace('_', ' ')} · {hazard.severity}
-                          </span>
-                          <span className="text-[#667085] font-medium">
-                            {hazard.source?.name ? hazard.source.name.split('(')[0] : 'Official Bulletin'}
-                          </span>
-                        </div>
-                        <strong className="mt-1 block text-sm font-bold text-[#101828]">
-                          {hazard.title}
-                        </strong>
-                        <p className="mt-1 text-[#475467] leading-5">
-                          {hazard.description_original}
-                        </p>
-                        {hazard.instruction_original && (
-                          <div className="mt-2 rounded bg-white/70 p-2 font-semibold text-[#7A271A]">
-                            Recommended Action: {hazard.instruction_original}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-[#CBD5E1] p-5 text-center text-xs text-[#667085]">
-                    <Icon name="check" size={20} />
-                    <strong className="block mt-2 text-sm text-[#101828]">
-                      No active advisories intersecting this straight-line corridor
-                    </strong>
-                    <p className="mt-1 max-w-md mx-auto">
-                      Neither origin nor destination currently overlaps with active seed warnings. Remember that localized waterlogging and sudden cloudbursts can occur without prior bulletin warning.
+            <div className="space-y-6">
+              {/* Transit Summary Card */}
+              <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B]">
+                      TRANSIT SUMMARY
+                    </span>
+                    <h3 className="text-xl font-extrabold text-[#101828] mt-1">
+                      {startDest.name} → {endDest.name}
+                    </h3>
+                    <p className="text-xs text-[#667085] mt-1 font-medium">
+                      Direct distance {distanceKm} km · Midpoint {midLat.toFixed(3)}, {midLng.toFixed(3)}
                     </p>
                   </div>
-                )}
+
+                  <div className="flex items-center gap-2">
+                    {navigate && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('map')}
+                        className="rounded-xl border border-[#D0D5DD] bg-white px-3.5 py-1.5 text-xs font-bold text-[#344054] hover:bg-slate-50 transition-colors shadow-2xs"
+                      >
+                        Open live map
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveRoute}
+                      className="rounded-xl border border-[#D0D5DD] bg-white px-3.5 py-1.5 text-xs font-bold text-[#344054] hover:bg-slate-50 transition-colors shadow-2xs"
+                    >
+                      {savedSuccess ? 'Saved!' : 'Save route'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amber Caution Callout */}
+                <div className="mt-4 rounded-xl border border-amber-200 bg-[#FEF0C7]/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#F79009] text-white font-extrabold text-sm">
+                      !
+                    </span>
+                    <div>
+                      <strong className="text-xs font-extrabold text-[#B54708] block">
+                        Caution advised on the coastal stretch
+                      </strong>
+                      <p className="text-xs text-[#B54708] mt-0.5 font-medium">
+                        {corridorHazards.length > 0
+                          ? `Corridor intersects ${corridorHazards.length} active weather hazard zones.`
+                          : 'Sample result — the corridor passes near an active advisory zone.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Corridor Map */}
+                <div className="mt-5 rounded-2xl border border-[#E2E8F0] overflow-hidden bg-white shadow-2xs">
+                  <div
+                    ref={mapContainerRef}
+                    className="h-[260px] w-full"
+                    style={{ minHeight: '250px' }}
+                  />
+                  {/* Map Legend */}
+                  <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 bg-[#FAFCFC] border-t border-[#E2E8F0] text-[11px] font-bold text-[#475467]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-0.5 w-3 bg-[#007F78]" />
+                      Clear corridor
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-0.5 w-3 bg-[#DC6803]" />
+                      Near advisory
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-xs border-2 border-[#D92D20] bg-red-100" />
+                      Hazard zone
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hazards Near This Corridor */}
+              <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+                <h4 className="text-sm font-extrabold text-[#101828] mb-4">
+                  Hazards near this corridor
+                </h4>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {/* Cyclone card */}
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#FAFCFC] p-3.5">
+                    <span className="text-[11px] font-bold text-[#64748B] block">Cyclone</span>
+                    <strong className="text-base font-extrabold text-[#DC6803] block mt-1">
+                      {corridorHazards.some(h => h.hazard_type === 'cyclone') ? 'Watch' : 'None flagged'}
+                    </strong>
+                    <span className="text-[10px] text-[#94A3B8] font-medium block mt-1">[Source: 10m]</span>
+                  </div>
+
+                  {/* Flood card */}
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#FAFCFC] p-3.5">
+                    <span className="text-[11px] font-bold text-[#64748B] block">Flood</span>
+                    <strong className="text-base font-extrabold text-[#D92D20] block mt-1">
+                      {corridorHazards.some(h => h.hazard_type === 'flood' || h.hazard_type === 'waterlogging') ? 'Advisory' : 'None flagged'}
+                    </strong>
+                    <span className="text-[10px] text-[#94A3B8] font-medium block mt-1">[Source: 0m]</span>
+                  </div>
+
+                  {/* Waterlogging card */}
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#FAFCFC] p-3.5">
+                    <span className="text-[11px] font-bold text-[#64748B] block">Waterlogging</span>
+                    <strong className="text-base font-extrabold text-[#007F78] block mt-1">
+                      {corridorHazards.some(h => h.hazard_type === 'waterlogging') ? 'Watch' : 'None flagged'}
+                    </strong>
+                    <span className="text-[10px] text-[#94A3B8] font-medium block mt-1">[Source: 0m]</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dark Emergency Notice Card matching bottom of mockup */}
+              <div className="rounded-2xl bg-[#0C1825] p-6 text-white shadow-md">
+                <strong className="text-sm font-bold text-white block">
+                  This is a straight-line estimate, not navigation
+                </strong>
+                <p className="text-xs text-[#94A3B8] mt-1.5 leading-5 font-normal">
+                  It cannot confirm road washouts, fallen trees or police blockades. Confirm with local helplines before travelling.
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <a
+                    href="tel:112"
+                    className="rounded-xl bg-white px-4 py-2 text-xs font-extrabold text-[#0C1825] hover:bg-slate-100 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    Call 112
+                  </a>
+                  <a
+                    href="tel:1070"
+                    className="rounded-xl border border-white/20 bg-transparent px-4 py-2 text-xs font-extrabold text-white hover:bg-white/10 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    Call 1070
+                  </a>
+                </div>
               </div>
             </div>
           ) : (

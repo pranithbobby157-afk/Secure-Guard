@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from './services/api';
 import { Alert, Area, EmergencyContact, SafeZone, SystemStatus } from './types';
 import { Copy, Language, messages } from './i18n/messages';
-import { Header, Page } from './components/Header';
+import { Page } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { Dashboard } from './components/Dashboard';
 import { ConditionsPage } from './components/ConditionsPage';
 import { RouteCheckPage } from './components/RouteCheckPage';
@@ -16,6 +18,7 @@ import { EditorPage } from './components/EditorPage';
 import { Footer } from './components/Footer';
 import { Scenario } from './components/StatusHero';
 import { Icon } from './components/Icon';
+import { savedStore } from './services/savedStore';
 
 const VALID_PAGES: Page[] = [
   'dashboard',
@@ -55,7 +58,17 @@ export const App: React.FC = () => {
   });
   const [language, setLanguage] = useState<Language>('en');
   const [mobileNav, setMobileNav] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [savedCount, setSavedCount] = useState(() => savedStore.getAll().length);
   const t: Copy = messages[language];
+
+  // Listen to saved bookmarks count for sidebar badge
+  useEffect(() => {
+    const unsub = savedStore.subscribe((items) => {
+      setSavedCount(items.length);
+    });
+    return unsub;
+  }, []);
 
   // Areas & Location
   const [areas, setAreas] = useState<Area[]>([]);
@@ -214,28 +227,41 @@ export const App: React.FC = () => {
     : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] text-[#101828]">
+    <div className="min-h-screen bg-[#F4F6F8] text-[#101828] flex flex-col lg:flex-row">
       {/* Skip to Main Content Accessible Link */}
       <a href="#main" className="skip-link">
         {t.skip}
       </a>
 
-      {/* Header */}
-      <Header
+      {/* Dark Sidebar matching inspiration mockup */}
+      <Sidebar
         t={t}
-        language={language}
-        setLanguage={setLanguage}
         page={page}
         navigate={navigate}
+        savedCount={savedCount}
         mobileNav={mobileNav}
         setMobileNav={setMobileNav}
-        areas={areas}
-        selectedAreaId={selectedAreaId}
-        onSelectArea={setSelectedAreaId}
-        userLocation={userLocation}
-        onToggleLocation={handleToggleLocation}
-        isLocating={isLocating}
       />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Controls Bar */}
+        <TopBar
+          t={t}
+          language={language}
+          setLanguage={setLanguage}
+          navigate={navigate}
+          mobileNav={mobileNav}
+          setMobileNav={setMobileNav}
+          areas={areas}
+          selectedAreaId={selectedAreaId}
+          onSelectArea={setSelectedAreaId}
+          userLocation={userLocation}
+          onToggleLocation={handleToggleLocation}
+          isLocating={isLocating}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
       {/* Main Pages */}
       <main id="main">
@@ -325,11 +351,12 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Footer */}
-      <Footer t={t} />
+        {/* Footer */}
+        <Footer t={t} />
+      </div>
 
-      {/* Floating Emergency Action Button (FAB) */}
-      {page !== 'contacts' && page !== 'editor' && page !== 'quick' && (
+      {/* Floating Emergency Action Button (FAB) matching mockup */}
+      {page !== 'quick' && (
         <button
           type="button"
           className="emergency-fab"
@@ -337,8 +364,8 @@ export const App: React.FC = () => {
           aria-label="Quick Emergency Mode"
           title="Open Quick Emergency Mode"
         >
-          <Icon name="zap" size={19} />
-          <span>Quick Mode</span>
+          <Icon name="zap" size={17} />
+          <span>QuickMode</span>
         </button>
       )}
     </div>

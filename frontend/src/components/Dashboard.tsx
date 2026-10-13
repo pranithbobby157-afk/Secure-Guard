@@ -21,6 +21,7 @@ interface DashboardProps {
   status: SystemStatus | null;
   lastSyncTime: string;
   isScenarioLoading?: boolean;
+  searchQuery?: string;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -33,12 +34,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   currentArea,
   status,
   lastSyncTime,
-  isScenarioLoading
+  isScenarioLoading,
+  searchQuery = ''
 }) => {
   const [hazardFilter, setHazardFilter] = useState('all');
 
-  // Filter alerts by hazard category
+  // Filter alerts by hazard category and search query
   const filteredAlerts = alerts.filter((alert) => {
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchText = `${alert.title} ${alert.description_original} ${alert.hazard_type} ${alert.severity}`.toLowerCase();
+      if (!matchText.includes(q)) return false;
+    }
     if (hazardFilter === 'all') return true;
     if (hazardFilter === 'cyclone') return alert.hazard_type === 'cyclone';
     if (hazardFilter === 'heavy_rain') return alert.hazard_type === 'heavy_rain';

@@ -5,6 +5,7 @@ import { Copy } from '../i18n/messages';
 import { Icon } from './Icon';
 import { Page } from './Header';
 import { CreateAlertModal } from './CreateAlertModal';
+import { EditAlertModal } from './EditAlertModal';
 import { CreateSafeZoneModal } from './CreateSafeZoneModal';
 import { supabase, signInWithGoogle, signOutGoogle, getGoogleSession } from '../services/supabase';
 import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
@@ -77,6 +78,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [isCreateSafeZoneModalOpen, setIsCreateSafeZoneModalOpen] = useState(false);
 
   // Server-side role verification for Google OAuth session
@@ -731,15 +733,27 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                         })}
                       </small>
                     </span>
-                    {authToken && a.is_simulated && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAlert(a.id)}
-                        className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-                        title="Delete alert"
-                      >
-                        Delete
-                      </button>
+                    {authToken && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAlert(a)}
+                          className="rounded-md border border-[#007F78]/30 bg-[#E0F2FE]/40 px-2.5 py-1 text-xs font-bold text-[#007F78] hover:bg-[#E0F2FE] cursor-pointer"
+                          title="Edit alert details"
+                        >
+                          Edit
+                        </button>
+                        {a.is_simulated && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAlert(a.id)}
+                            className="rounded-md border border-red-200 bg-red-50/50 px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-100 cursor-pointer"
+                            title="Delete alert"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))
@@ -954,6 +968,20 @@ export const EditorPage: React.FC<EditorPageProps> = ({
           areas={areas}
           onClose={() => setIsCreateModalOpen(false)}
           onAlertCreated={onRefreshData}
+        />
+      )}
+
+      {/* Edit Alert Modal */}
+      {editingAlert && authToken && (
+        <EditAlertModal
+          alert={editingAlert}
+          token={authToken}
+          areas={areas}
+          onClose={() => setEditingAlert(null)}
+          onAlertUpdated={() => {
+            onRefreshData();
+            setEditingAlert(null);
+          }}
         />
       )}
 

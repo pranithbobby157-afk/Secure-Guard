@@ -7,6 +7,7 @@ import { Page } from './Header';
 import { CreateAlertModal } from './CreateAlertModal';
 import { EditAlertModal } from './EditAlertModal';
 import { CreateSafeZoneModal } from './CreateSafeZoneModal';
+import { EditSafeZoneModal } from './EditSafeZoneModal';
 import { supabase, signInWithGoogle, signOutGoogle, getGoogleSession } from '../services/supabase';
 import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
 
@@ -80,6 +81,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [isCreateSafeZoneModalOpen, setIsCreateSafeZoneModalOpen] = useState(false);
+  const [editingSafeZone, setEditingSafeZone] = useState<SafeZone | null>(null);
 
   // Server-side role verification for Google OAuth session
   const syncGoogleSession = async (session: SupabaseSession | null) => {
@@ -262,6 +264,17 @@ export const EditorPage: React.FC<EditorPageProps> = ({
       onRefreshData();
     } catch (err: any) {
       alert(`Could not delete alert: ${err.message}`);
+    }
+  };
+
+  const handleDeleteSafeZone = async (safeZoneId: string, name?: string) => {
+    if (!authToken) return;
+    if (!window.confirm(`Are you sure you want to delete "${name || safeZoneId}"?`)) return;
+    try {
+      await api.adminDeleteSafeZone(authToken, safeZoneId);
+      onRefreshData();
+    } catch (err: any) {
+      alert(`Could not delete safe place: ${err.message}`);
     }
   };
 
@@ -834,15 +847,37 @@ export const EditorPage: React.FC<EditorPageProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => navigate('map')}
-                      className="shrink-0 flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#005E59] hover:bg-[#DDF8EF] cursor-pointer"
-                      title="View on Map"
-                    >
-                      <Icon name="location" size={13} />
-                      View on Map
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate('map')}
+                        className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#005E59] hover:bg-[#DDF8EF] cursor-pointer"
+                        title="View on Map"
+                      >
+                        <Icon name="location" size={13} />
+                        View on Map
+                      </button>
+                      {authToken && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSafeZone(sz)}
+                            className="rounded-lg border border-[#007F78]/30 bg-[#E0F2FE]/40 px-2.5 py-1 text-xs font-bold text-[#007F78] hover:bg-[#E0F2FE] cursor-pointer"
+                            title="Edit place details"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSafeZone(sz.id, sz.name)}
+                            className="rounded-lg border border-red-200 bg-red-50/50 px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-100 cursor-pointer"
+                            title="Delete safe zone"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
@@ -992,6 +1027,20 @@ export const EditorPage: React.FC<EditorPageProps> = ({
           areas={areas}
           onClose={() => setIsCreateSafeZoneModalOpen(false)}
           onSafeZoneCreated={onRefreshData}
+        />
+      )}
+
+      {/* Edit Safe Place / Shelter Modal */}
+      {editingSafeZone && authToken && (
+        <EditSafeZoneModal
+          safeZone={editingSafeZone}
+          token={authToken}
+          areas={areas}
+          onClose={() => setEditingSafeZone(null)}
+          onSafeZoneUpdated={() => {
+            onRefreshData();
+            setEditingSafeZone(null);
+          }}
         />
       )}
     </div>

@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import Alert, SafeZone, Source, AuditLog, User
 from app.schemas import (
     AlertOut, AlertCreate, AlertUpdate,
-    SafeZoneOut, SafeZoneCreate,
+    SafeZoneOut, SafeZoneCreate, SafeZoneUpdate,
     AuditLogOut, SourceOut
 )
 from app.routers.auth import get_current_user
@@ -267,6 +267,94 @@ def create_safe_zone(
     db.commit()
     db.refresh(new_sz)
     return new_sz
+
+@router.patch("/safe-zones/{safe_zone_id}", response_model=SafeZoneOut)
+def update_safe_zone(
+    safe_zone_id: str,
+    req: SafeZoneUpdate,
+    current_user: User = Depends(require_editor_or_admin),
+    db: Session = Depends(get_db)
+):
+    sz = db.query(SafeZone).filter(SafeZone.id == safe_zone_id).first()
+    if not sz:
+        raise HTTPException(status_code=404, detail="Safe zone not found")
+
+    changes = {}
+    if req.name is not None:
+        sz.name = req.name
+        changes["name"] = req.name
+    if req.facility_type is not None:
+        sz.facility_type = req.facility_type
+        changes["facility_type"] = req.facility_type
+    if req.address is not None:
+        sz.address = req.address
+        changes["address"] = req.address
+    if req.latitude is not None:
+        sz.latitude = req.latitude
+        changes["latitude"] = req.latitude
+    if req.longitude is not None:
+        sz.longitude = req.longitude
+        changes["longitude"] = req.longitude
+    if req.source_name is not None:
+        sz.source_name = req.source_name
+        changes["source_name"] = req.source_name
+    if req.source_url is not None:
+        sz.source_url = req.source_url
+        changes["source_url"] = req.source_url
+    if req.verification_status is not None:
+        sz.verification_status = req.verification_status
+        changes["verification_status"] = req.verification_status
+    if req.operational_status is not None:
+        sz.operational_status = req.operational_status
+        changes["operational_status"] = req.operational_status
+    if req.capacity_notes is not None:
+        sz.capacity_notes = req.capacity_notes
+        changes["capacity_notes"] = req.capacity_notes
+    if req.contact_phone is not None:
+        sz.contact_phone = req.contact_phone
+        changes["contact_phone"] = req.contact_phone
+
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    sz.last_verified_at = now
+
+    audit = AuditLog(
+        id=f"audit-sz-{uuid.uuid4().hex[:12]}",
+        user_id=current_user.id,
+        action="UPDATE_SAFE_ZONE",
+        entity_type="safe_zone",
+        entity_id=sz.id,
+        timestamp=now,
+        details_json=json.dumps(changes)
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(sz)
+    return sz
+
+@router.delete("/safe-zones/{safe_zone_id}")
+def delete_safe_zone(
+    safe_zone_id: str,
+    current_user: User = Depends(require_editor_or_admin),
+    db: Session = Depends(get_db)
+):
+    sz = db.query(SafeZone).filter(SafeZone.id == safe_zone_id).first()
+    if not sz:
+        raise HTTPException(status_code=404, detail="Safe zone not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    audit = AuditLog(
+        id=f"audit-sz-{uuid.uuid4().hex[:12]}",
+        user_id=current_user.id,
+        action="DELETE_SAFE_ZONE",
+        entity_type="safe_zone",
+        entity_id=sz.id,
+        timestamp=now,
+        details_json=json.dumps({"name": sz.name})
+    )
+    db.add(audit)
+    db.delete(sz)
+    db.commit()
+    return {"message": f"Safe zone {safe_zone_id} deleted successfully"}
 
 @router.post("/sources/{source_id}/refresh", response_model=SourceOut)
 def refresh_source_endpoint(

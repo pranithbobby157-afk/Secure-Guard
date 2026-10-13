@@ -230,6 +230,21 @@ export const api = {
     });
   },
 
+  adminUpdateSafeZone: (token: string, safeZoneId: string, payload: any) => {
+    return request<SafeZone>(`/api/admin/safe-zones/${safeZoneId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  adminDeleteSafeZone: (token: string, safeZoneId: string) => {
+    return request<{ message: string }>(`/api/admin/safe-zones/${safeZoneId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+
   adminRefreshSource: (token: string, sourceId: string) => {
     return request<Source>(`/api/admin/sources/${sourceId}/refresh`, {
       method: 'POST',

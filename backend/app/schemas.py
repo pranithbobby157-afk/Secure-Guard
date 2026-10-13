@@ -139,6 +139,19 @@ class SafeZoneCreate(BaseModel):
     contact_phone: Optional[str] = None
     is_simulated: bool = False
 
+class SafeZoneUpdate(BaseModel):
+    name: Optional[str] = None
+    facility_type: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    verification_status: Optional[str] = None
+    operational_status: Optional[str] = None
+    capacity_notes: Optional[str] = None
+    contact_phone: Optional[str] = None
+
 # ----------------- Emergency Contact -----------------
 class EmergencyContactOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

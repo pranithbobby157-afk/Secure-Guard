@@ -240,55 +240,151 @@ export async function handleAdmin(
     }
   }
 
-  // 3. Safe zones: POST /admin/safe-zones
-  if (resource === 'safe-zones' && method === 'POST') {
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return errorResponse('Invalid JSON body', 400);
+  // 3. Safe zones: /admin/safe-zones
+  if (resource === 'safe-zones') {
+    // POST /admin/safe-zones
+    if (method === 'POST') {
+      let body: any;
+      try {
+        body = await req.json();
+      } catch {
+        return errorResponse('Invalid JSON body', 400);
+      }
+
+      const nowIso = new Date().toISOString();
+      const szId = `sz-editor-${crypto.randomUUID().replace(/-/g, '').substring(0, 10)}`;
+
+      const newSzRow = {
+        id: szId,
+        area_id: body.area_id,
+        name: body.name,
+        facility_type: body.facility_type,
+        address: body.address,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        source_name: body.source_name,
+        source_url: body.source_url || null,
+        verification_status: body.verification_status || 'official_verified',
+        last_verified_at: nowIso,
+        operational_status: body.operational_status || 'open',
+        capacity_notes: body.capacity_notes || null,
+        contact_phone: body.contact_phone || null,
+        is_simulated: !!body.is_simulated,
+      };
+
+      const { data: createdSz, error: insertErr } = await supabase
+        .from('safe_zones')
+        .insert(newSzRow)
+        .select('*')
+        .single();
+
+      if (insertErr || !createdSz) {
+        return errorResponse(`Failed to create safe zone: ${insertErr?.message || 'Database error'}`, 500);
+      }
+
+      await logAudit(supabase, {
+        userId: currentUser.id,
+        action: 'CREATE_SAFE_ZONE',
+        entityType: 'safe_zone',
+        entityId: szId,
+        details: { name: body.name, facility_type: body.facility_type },
+      });
+
+      return jsonResponse(createdSz);
     }
 
-    const nowIso = new Date().toISOString();
-    const szId = `sz-editor-${crypto.randomUUID().replace(/-/g, '').substring(0, 10)}`;
+    // PATCH /admin/safe-zones/:id
+    if (subId && method === 'PATCH') {
+      let body: any;
+      try {
+        body = await req.json();
+      } catch {
+        return errorResponse('Invalid JSON body', 400);
+      }
 
-    const newSzRow = {
-      id: szId,
-      area_id: body.area_id,
-      name: body.name,
-      facility_type: body.facility_type,
-      address: body.address,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      source_name: body.source_name,
-      source_url: body.source_url || null,
-      verification_status: body.verification_status || 'official_verified',
-      last_verified_at: nowIso,
-      operational_status: body.operational_status || 'open',
-      capacity_notes: body.capacity_notes || null,
-      contact_phone: body.contact_phone || null,
-      is_simulated: !!body.is_simulated,
-    };
+      const { data: existing, error: findErr } = await supabase
+        .from('safe_zones')
+        .select('*')
+        .eq('id', subId)
+        .maybeSingle();
 
-    const { data: createdSz, error: insertErr } = await supabase
-      .from('safe_zones')
-      .insert(newSzRow)
-      .select('*')
-      .single();
+      if (findErr) return errorResponse(`Database error: ${findErr.message}`, 500);
+      if (!existing) return errorResponse('Safe zone not found', 404);
 
-    if (insertErr || !createdSz) {
-      return errorResponse(`Failed to create safe zone: ${insertErr?.message || 'Database error'}`, 500);
+      const updates: Record<string, unknown> = {};
+      const changes: Record<string, unknown> = {};
+
+      const fields = [
+        'name',
+        'facility_type',
+        'address',
+        'latitude',
+        'longitude',
+        'operational_status',
+        'capacity_notes',
+        'contact_phone',
+        'source_name',
+        'source_url',
+        'verification_status',
+      ];
+
+      for (const field of fields) {
+        if (body[field] !== undefined) {
+          updates[field] = body[field];
+          changes[field] = body[field];
+        }
+      }
+
+      updates['last_verified_at'] = new Date().toISOString();
+
+      const { data: updated, error: updateErr } = await supabase
+        .from('safe_zones')
+        .update(updates)
+        .eq('id', subId)
+        .select('*')
+        .single();
+
+      if (updateErr || !updated) {
+        return errorResponse(`Failed to update safe zone: ${updateErr?.message || 'Database error'}`, 500);
+      }
+
+      await logAudit(supabase, {
+        userId: currentUser.id,
+        action: 'UPDATE_SAFE_ZONE',
+        entityType: 'safe_zone',
+        entityId: subId,
+        details: changes,
+      });
+
+      return jsonResponse(updated);
     }
 
-    await logAudit(supabase, {
-      userId: currentUser.id,
-      action: 'CREATE_SAFE_ZONE',
-      entityType: 'safe_zone',
-      entityId: szId,
-      details: { name: body.name, facility_type: body.facility_type },
-    });
+    // DELETE /admin/safe-zones/:id
+    if (subId && method === 'DELETE') {
+      const { data: existing, error: findErr } = await supabase
+        .from('safe_zones')
+        .select('id, name')
+        .eq('id', subId)
+        .maybeSingle();
 
-    return jsonResponse(createdSz);
+      if (findErr) return errorResponse(`Database error: ${findErr.message}`, 500);
+      if (!existing) return errorResponse('Safe zone not found', 404);
+
+      const { error: delErr } = await supabase.from('safe_zones').delete().eq('id', subId);
+      if (delErr) {
+        return errorResponse(`Failed to delete safe zone: ${delErr.message}`, 500);
+      }
+
+      await logAudit(supabase, {
+        userId: currentUser.id,
+        action: 'DELETE_SAFE_ZONE',
+        entityType: 'safe_zone',
+        entityId: subId,
+        details: { name: existing.name },
+      });
+
+      return jsonResponse({ message: `Safe zone ${subId} deleted successfully` });
+    }
   }
 
   // 4. Sources management
